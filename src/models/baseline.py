@@ -106,7 +106,7 @@ def main(args):
         y_pred_torch = carregar_pytorch(X, modelo_pytorch_path)
     else:
         print("Treinando novo modelo PyTorch...")
-        model = treinar_pytorch(X, y, modelo_pytorch_path)
+        #model = treinar_pytorch(X, y, modelo_pytorch_path)
         y_pred_torch = carregar_pytorch(X, modelo_pytorch_path)
 
     # ------------------ Scikit-Learn ------------------
