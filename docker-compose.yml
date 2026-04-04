@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   api:
     build: .
@@ -15,15 +13,18 @@ services:
       - mlflow
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:latest
+    image: python:3.10-slim
     container_name: mlflow-server
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./mlruns:/mlruns
-      - ./mlflow.db:/mlflow.db
-    command: mlflow server \
-      --backend-store-uri sqlite:///mlflow.db \
-      --default-artifact-root /mlruns \
-      --host 0.0.0.0 \
-      --port 5000
+    working_dir: /app
+  volumes:
+    - ./mlruns:/mlruns
+    - ./mlflow.db:/mlflow.db
+  ports:
+    - "5000:5000"
+  command: >
+    sh -c "pip install mlflow && 
+           mlflow server 
+           --backend-store-uri sqlite:///mlflow.db 
+           --default-artifact-root /mlruns 
+           --host 0.0.0.0 
+           --port 5000"
