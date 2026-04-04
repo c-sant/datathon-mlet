@@ -2,14 +2,19 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Copia arquivos
+# Dependências básicas
+RUN apt-get update && apt-get install -y build-essential python3-dev git
+
+# Copia o projeto
 COPY . /app
 
-# Instala BentoML e dependências
-RUN pip install --no-cache-dir bentoml vllm torch transformers sentence-transformers faiss-cpu mlflow newspaper3k requests
+# Instala libs necessárias
+RUN pip install --no-cache-dir \
+    torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121 \
+    vllm==0.4.1 bentoml transformers sentence-transformers faiss-cpu mlflow newspaper3k requests
 
-# Expõe porta padrão do BentoML
 EXPOSE 3000
 
-# Comando para rodar o serviço
-CMD ["bentoml", "serve", "app:svc", "--port", "3000"]
+# Força BentoML a rodar na porta 3000
+CMD ["bentoml", "serve", "generator.serving.app:svc", "--port", "3000", "--host", "0.0.0.0"]
+ENTRYPOINT ["bentoml", "serve", "generator.serving.app:svc", "--port", "3000", "--host", "0.0.0.0"]
