@@ -21,8 +21,12 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.vllm
+    container_name: vllm-server
     ports:
       - "8001:8000"
+    environment:
+      VLLM_DEVICE: "cpu"
+      VLLM_LOGGING_LEVEL: "DEBUG"
 
   mlflow:
     build:
