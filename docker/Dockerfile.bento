@@ -6,7 +6,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir bentoml vllm requests
 
 # Copia o serviço BentoML
-COPY ../generator/serving /generator/serving
+COPY generator/serving /generator/serving
 
 EXPOSE 3000
 
