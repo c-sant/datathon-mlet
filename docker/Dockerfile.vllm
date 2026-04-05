@@ -6,4 +6,4 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 EXPOSE 8000
 
-CMD ["python", "-m", "vllm.entrypoints.openai.api_server", "--model", "distilgpt2", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "vllm.entrypoints.openai.api_server", "--model", "pierreguillou/gpt2-small-portuguese", "--host", "0.0.0.0", "--port", "8000", "--device", "cpu"]
