@@ -3,7 +3,7 @@ from bentoml.io import JSON
 from vllm import LLM, SamplingParams
 
 # Inicializa o modelo via vLLM
-llm = LLM(model="pierreguillou/gpt2-small-portuguese")
+llm = LLM(model="pierreguillou/gpt2-small-portuguese", device="cpu")
 
 # Define parâmetros de geração
 sampling_params = SamplingParams(temperature=0.7, max_tokens=200)
