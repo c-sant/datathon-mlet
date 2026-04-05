@@ -33,6 +33,6 @@ services:
     ports:
       - "8002:3000"
     volumes:
-      - ../bentos:/bentos
+      - ../generator/serving:/generator/serving
     depends_on:
       - vllm
