@@ -12,15 +12,27 @@ services:
       - .:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
-      - mlflow
+      - bentoml
 
-  mlflow:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm-server
+    ports:
+      - "8001:8000"
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+      --model facebook/opt-125m
+      --host 0.0.0.0
+      --port 8000
+
+  bentoml:
     build:
       context: .
-      dockerfile: Dockerfile.mlflow
-    container_name: mlflow-server
+      dockerfile: Dockerfile.bento
+    container_name: bentoml-server
     ports:
-      - "5000:5000"
+      - "8002:3000"
     volumes:
-      - ./mlruns:/mlruns
-      - ./mlflow.db:/mlflow.db
+      - ./bentos:/bentos
+    depends_on:
+      - vllm
