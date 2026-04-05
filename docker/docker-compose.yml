@@ -1,22 +1,6 @@
+version: "3.9"
+
 services:
-  api:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.api
-    ports:
-      - "8000:8000"
-    depends_on:
-      - bentoml
-
-  bentoml:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile.bento
-    ports:
-      - "8002:3000"
-    depends_on:
-      - vllm
-
   vllm:
     build:
       context: ..
@@ -27,6 +11,24 @@ services:
     environment:
       VLLM_DEVICE: "cpu"
       VLLM_LOGGING_LEVEL: "DEBUG"
+
+  bentoml:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.bento
+    ports:
+      - "8002:3000"
+    depends_on:
+      - vllm
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    depends_on:
+      - bentoml
 
   mlflow:
     build:
