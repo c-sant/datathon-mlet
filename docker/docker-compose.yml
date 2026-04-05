@@ -3,7 +3,6 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.api
-    container_name: mlet-api
     ports:
       - "8000:8000"
     depends_on:
@@ -13,28 +12,22 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.bento
-    container_name: bentoml-server
     ports:
       - "8002:3000"
     depends_on:
       - vllm
 
   vllm:
-    image: vllm/vllm-openai:latest
-    container_name: vllm-server
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.vllm
     ports:
       - "8001:8000"
-    command: >
-      python -m vllm.entrypoints.openai.api_server
-      --model distilgpt2
-      --host 0.0.0.0
-      --port 8000
 
   mlflow:
     build:
       context: ..
       dockerfile: docker/Dockerfile.mlflow
-    container_name: mlflow-server
     ports:
       - "5000:5000"
     volumes:
