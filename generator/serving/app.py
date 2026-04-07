@@ -7,7 +7,6 @@ svc = bentoml.Service(
     description="Serviço de geração de texto em português usando vLLM",
 )
 
-# Define o endpoint /generate
 @svc.api_route("/generate", input=JSON(), output=JSON())
 def generate(input_json):
     query = input_json.get("query")
