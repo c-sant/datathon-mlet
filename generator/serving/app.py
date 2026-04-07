@@ -1,9 +1,10 @@
 import bentoml
 from bentoml.io import JSON
 from vllm import LLM, SamplingParams
+import requests
 
 # Inicializa o modelo via vLLM
-llm = LLM(model="pierreguillou/gpt2-small-portuguese", device="cpu")
+llm = LLM(model="pierreguillou/gpt2-small-portuguese")
 
 # Define parâmetros de geração
 sampling_params = SamplingParams(temperature=0.7, max_tokens=200)
@@ -11,7 +12,6 @@ sampling_params = SamplingParams(temperature=0.7, max_tokens=200)
 # Cria o serviço BentoML
 svc = bentoml.Service(
     "acoes_generator",
-    runners=[],
     description="Serviço de geração de texto em português usando vLLM",
 )
 
@@ -29,10 +29,19 @@ svc = bentoml.Service(
         }
     ),
 )
+
+@svc.api(input=JSON(), output=JSON())
 def generate(input_json):
     query = input_json.get("query")
     context = input_json.get("context", "")
     prompt = f"Responda em português.\nPergunta: {query}\nContexto: {context}\nResposta:"
-    
-    outputs = llm.generate([prompt], sampling_params)
-    return {"answer": outputs[0].outputs[0].text}
+
+    resp = requests.post(
+        "http://vllm:8000/v1/completions",
+        json={
+            "model": "pierreguillou/gpt2-small-portuguese",
+            "prompt": prompt,
+            "max_tokens": 200
+        }
+    )
+    return {"answer": resp.json()["choices"][0]["text"]}
