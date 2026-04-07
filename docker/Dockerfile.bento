@@ -3,7 +3,7 @@ FROM python:3.10-slim
 WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir bentoml vllm requests
+    pip install --no-cache-dir bentoml requests
 
 # Copia o serviço BentoML
 COPY generator/serving /generator/serving

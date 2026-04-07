@@ -3,7 +3,7 @@ FROM python:3.10-slim
 WORKDIR /app
 
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir vllm uvicorn torch
+    pip install --no-cache-dir vllm uvicorn torch==2.2.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
 EXPOSE 8000
 
