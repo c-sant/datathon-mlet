@@ -1,5 +1,6 @@
 import argparse
 import os
+from flask import json
 import tensorflow as tf
 import torch
 import torch.nn as nn
@@ -12,6 +13,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.neural_network import MLPRegressor
 import joblib
+import json
 
 # ------------------ PyTorch ------------------
 class MLP_PyTorch(nn.Module):
@@ -177,6 +179,7 @@ def main(args):
 
     resultados.append(avaliar_modelo(y, y_pred_final, "Ensemble", scaler))
 
+
     # ------------------ Tabela ------------------
     tabela = pd.DataFrame([{
         "Modelo": r["Modelo"],
@@ -187,6 +190,35 @@ def main(args):
 
     print("\n=== RESULTADOS ===")
     print(tabela)
+
+    # ------------------ Salvar resultados ------------------
+    os.makedirs("reports", exist_ok=True)
+
+    # CSV (para leitura humana)
+    csv_path = "reports/metrics_comparison.csv"
+    tabela.to_csv(csv_path, index=False)
+    print(f"\nTabela salva em: {csv_path}")
+
+    # JSON (para DVC)
+    metrics_json = {}
+
+    for r in resultados:
+        nome = r["Modelo"].lower()
+        nome = nome.replace(" ", "_").replace("(", "").replace(")", "").replace("%", "")
+
+        metrics_json[nome] = {
+            "mae": float(r["MAE"]),
+            "rmse": float(r["RMSE"]),
+            "mape": float(r["MAPE (%)"])
+     }
+
+    json_path = "reports/metrics.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(metrics_json, f, indent=2, ensure_ascii=False)
+
+    print(f"Métricas salvas em: {json_path}")
+
+
 
     # ------------------ Gráfico ------------------
     plt.figure(figsize=(12,6))

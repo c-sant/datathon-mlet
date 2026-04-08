@@ -57,8 +57,8 @@ stages:
       size: 3298
     - path: src/models/baseline.py
       hash: md5
-      md5: 15af0236495fa40f0c9f4f0a2aad8c07
-      size: 7455
+      md5: 9f09375c122ae3dc6d2481cc29bc3c64
+      size: 8320
     params:
       params.yaml:
         baseline:
@@ -70,6 +70,16 @@ stages:
           modelo_sklearn: models/modelo_ITUB4.SA_sklearn.joblib
           data_path: data/raw/stock_data.csv
         data.output: data/raw/stock_data.csv
+        train.janela: 90
+    outs:
+    - path: reports/metrics.json
+      hash: md5
+      md5: 65206331d46b657c89cd8680978fe1b1
+      size: 224
+    - path: reports/metrics_comparison.csv
+      hash: md5
+      md5: 7d8c2ce5ca25f91030d318b1a18067f8
+      size: 100
   ingest:
     cmd: "python data/ingest.py --ticker ITUB4.SA --start 2025-04-01 --end 2026-04-30
       --output data/raw/stock_data.csv\n"
