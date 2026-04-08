@@ -78,98 +78,125 @@ def avaliar_modelo(y_real, y_pred, nome_modelo, scaler):
 def main(args):
     ticker = args.ticker
     modelo_path = args.modelo
-    print(f"Avaliando {ticker}...")
+    start = args.start
+    end = args.end
+    janela = args.janela
+    usar_keras = args.keras
 
-    # Coletar dados
-    dados = yf.download(ticker, start="2025-01-01", end="2025-12-31")
+    print(f"Avaliando {ticker} de {start} até {end} | janela={janela}")
+
+    # ------------------ Coletar dados ------------------
+    dados = yf.download(ticker, start=start, end=end)
+
+    if dados.empty:
+        raise ValueError("Nenhum dado retornado. Verifique ticker ou datas.")
+
     precos = dados[['Close']].values
 
-    # Normalizar
+    # ------------------ Normalizar ------------------
     scaler = MinMaxScaler(feature_range=(0,1))
     precos_normalizados = scaler.fit_transform(precos)
 
-    janela = 90
     X, y = [], []
     for i in range(janela, len(precos_normalizados)):
         X.append(precos_normalizados[i-janela:i, 0])
         y.append(precos_normalizados[i, 0])
+
     X = np.array(X)
     y = np.array(y)
 
-    # Reshape para Keras
+    if len(X) == 0:
+        raise ValueError("Janela muito grande para o período escolhido.")
+
+    # reshape keras
     X_keras = np.reshape(X, (X.shape[0], X.shape[1], 1))
 
     # ------------------ PyTorch ------------------
-    modelo_pytorch_path = "modelo_pytorch.pth"
+    modelo_pytorch_path = args.modelo_pytorch
+
     if os.path.exists(modelo_pytorch_path):
-        print("Carregando modelo PyTorch salvo...")
+        print("Carregando modelo PyTorch...")
         y_pred_torch = carregar_pytorch(X, modelo_pytorch_path)
     else:
-        print("Treinando novo modelo PyTorch...")
-        model = treinar_pytorch(X, y, modelo_pytorch_path)
+        print("Treinando PyTorch...")
+        treinar_pytorch(X, y, modelo_pytorch_path)
         y_pred_torch = carregar_pytorch(X, modelo_pytorch_path)
 
-    # ------------------ Scikit-Learn ------------------
-    modelo_sklearn_path = "modelo_sklearn.joblib"
+    # ------------------ Scikit ------------------
+    modelo_sklearn_path = args.modelo_sklearn
+
     if os.path.exists(modelo_sklearn_path):
-        print("Carregando modelo Scikit-Learn salvo...")
+        print("Carregando Scikit...")
         mlp = joblib.load(modelo_sklearn_path)
     else:
-        print("Treinando novo modelo Scikit-Learn...")
+        print("Treinando Scikit...")
         mlp = MLPRegressor(hidden_layer_sizes=(64,32), max_iter=500)
         mlp.fit(X, y)
         joblib.dump(mlp, modelo_sklearn_path)
+
     y_pred_sklearn = mlp.predict(X).reshape(-1,1)
 
-    # ------------------ Keras (fallback) ------------------
-    if os.path.exists(modelo_path):
-        print("Carregando modelo Keras salvo...")
+    # ------------------ Keras ------------------
+    y_pred_keras = None
+    if usar_keras and modelo_path and os.path.exists(modelo_path):
+        print("Carregando Keras...")
         modelo = tf.keras.models.load_model(modelo_path)
         y_pred_keras = modelo.predict(X_keras)
-    else:
-        y_pred_keras = None
 
-    # ------------------ Avaliar cada modelo ------------------
+    # ------------------ Avaliação ------------------
     resultados = []
     resultados.append(avaliar_modelo(y, y_pred_torch, "PyTorch", scaler))
-    resultados.append(avaliar_modelo(y, y_pred_sklearn, "Scikit-Learn", scaler))
+    resultados.append(avaliar_modelo(y, y_pred_sklearn, "Scikit", scaler))
+
     if y_pred_keras is not None:
         resultados.append(avaliar_modelo(y, y_pred_keras, "Keras", scaler))
 
-    # ------------------ Ensemble final ------------------
+    # Ensemble
     y_pred_final = (y_pred_torch + y_pred_sklearn) / 2
     if y_pred_keras is not None:
         y_pred_final = (y_pred_final + y_pred_keras) / 2
-    resultados.append(avaliar_modelo(y, y_pred_final, "Ensemble Final", scaler))
 
-    # ------------------ Tabela comparativa ------------------
-    tabela_metricas = pd.DataFrame([{
+    resultados.append(avaliar_modelo(y, y_pred_final, "Ensemble", scaler))
+
+    # ------------------ Tabela ------------------
+    tabela = pd.DataFrame([{
         "Modelo": r["Modelo"],
         "MAE": r["MAE"],
         "RMSE": r["RMSE"],
         "MAPE (%)": r["MAPE (%)"]
     } for r in resultados])
 
-    fig, ax = plt.subplots(figsize=(8,4))
-    ax.axis('off')
-    ax.table(cellText=tabela_metricas.values,
-             colLabels=tabela_metricas.columns,
-             loc='center')
-    plt.title("Tabela comparativa de métricas")
-    plt.show()
+    print("\n=== RESULTADOS ===")
+    print(tabela)
 
-    # ------------------ Gráfico comparativo ------------------
+    # ------------------ Gráfico ------------------
     plt.figure(figsize=(12,6))
-    plt.plot(scaler.inverse_transform(y.reshape(-1,1)), label="Preço Real")
+    plt.plot(scaler.inverse_transform(y.reshape(-1,1)), label="Real")
+
     for r in resultados:
         plt.plot(r["Predicoes"], label=r["Modelo"])
-    plt.title(f"Comparação de previsões - {ticker}")
+
+    plt.title(f"Comparação de modelos - {ticker}")
     plt.legend()
     plt.show()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Baseline de previsão de ações")
-    parser.add_argument("--modelo", type=str, required=True, help="Caminho do modelo salvo (.keras)")
-    parser.add_argument("--ticker", type=str, default="ITUB4.SA", help="Ticker para coletar dados atuais")
+    parser = argparse.ArgumentParser(description="Treino e avaliação de modelos")
+
+    parser.add_argument("--ticker", type=str, required=True)
+    parser.add_argument("--start", type=str, required=True)
+    parser.add_argument("--end", type=str, required=True)
+
+    parser.add_argument("--janela", type=int, default=90)
+
+    parser.add_argument("--modelo", type=str, default=None,
+                        help="Modelo Keras (.keras)")
+
+    parser.add_argument("--modelo-pytorch", type=str, default="modelo_pytorch.pth")
+    parser.add_argument("--modelo-sklearn", type=str, default="modelo_sklearn.joblib")
+
+    parser.add_argument("--keras", action="store_true",
+                        help="Ativar uso de modelo Keras")
+
     args = parser.parse_args()
     main(args)

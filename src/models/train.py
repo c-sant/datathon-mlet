@@ -1,27 +1,42 @@
+# src/models/train.py
+"""Pipeline de treinamento com MLflow tracking padronizado para regressão."""
 import argparse
+import logging
 import os
-import yfinance as yf
-import numpy as np
+
+import joblib
 import mlflow
-import mlflow.sklearn
 import mlflow.pytorch
+import mlflow.sklearn
 import mlflow.tensorflow
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from sklearn.preprocessing import MinMaxScaler
+import yfinance as yf
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.neural_network import MLPRegressor
-import joblib
-import tensorflow as tf
-from tensorflow.keras import Sequential, Input
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras import Input, Sequential
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+MLFLOW_DIR = ROOT_DIR / "mlflow"
+MLFLOW_DIR.mkdir(exist_ok=True)
+(MLFLOW_DIR / "artifacts").mkdir(exist_ok=True)
+
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 # ------------------ PyTorch ------------------
 class MLP_PyTorch(nn.Module):
-    def __init__(self, input_dim):
-        super(MLP_PyTorch, self).__init__()
+    def __init__(self, input_dim: int):
+        super().__init__()
         self.fc1 = nn.Linear(input_dim, 64)
         self.fc2 = nn.Linear(64, 32)
         self.fc3 = nn.Linear(32, 1)
@@ -32,16 +47,18 @@ class MLP_PyTorch(nn.Module):
         x = self.relu(self.fc2(x))
         return self.fc3(x)
 
-def treinar_pytorch(X_train, y_train, modelo_path):
+
+def treinar_pytorch(X_train: np.ndarray, y_train: np.ndarray, modelo_path: str) -> nn.Module:
     input_dim = X_train.shape[1]
     model = MLP_PyTorch(input_dim)
+
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     X_train_t = torch.tensor(X_train, dtype=torch.float32)
-    y_train_t = torch.tensor(y_train, dtype=torch.float32).view(-1,1)
+    y_train_t = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
 
-    for epoch in range(50):
+    for _ in range(50):
         optimizer.zero_grad()
         outputs = model(X_train_t)
         loss = criterion(outputs, y_train_t)
@@ -49,16 +66,66 @@ def treinar_pytorch(X_train, y_train, modelo_path):
         optimizer.step()
 
     torch.save(model.state_dict(), modelo_path)
-    print(f"✅ Modelo PyTorch salvo em {modelo_path}")
+    logger.info("Modelo PyTorch salvo em %s", modelo_path)
     return model
 
-def avaliar(y_true, y_pred, scaler):
-    y_true_inv = scaler.inverse_transform(y_true.reshape(-1,1))
-    y_pred_inv = scaler.inverse_transform(y_pred.reshape(-1,1))
+
+def avaliar_regressao(y_true: np.ndarray, y_pred: np.ndarray, scaler: MinMaxScaler) -> dict:
+    y_true_inv = scaler.inverse_transform(y_true.reshape(-1, 1))
+    y_pred_inv = scaler.inverse_transform(y_pred.reshape(-1, 1))
+
     mae = mean_absolute_error(y_true_inv, y_pred_inv)
     rmse = np.sqrt(mean_squared_error(y_true_inv, y_pred_inv))
     mape = np.mean(np.abs((y_true_inv - y_pred_inv) / y_true_inv)) * 100
-    return mae, rmse, mape
+
+    return {
+        "mae": float(mae),
+        "rmse": float(rmse),
+        "mape": float(mape),
+    }
+
+
+def baixar_dados(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
+    dados = yf.download(ticker, start=start_date, end=end_date, progress=False)
+
+    if dados is None or dados.empty:
+        raise ValueError(f"Não foi possível baixar dados para o ticker {ticker}")
+
+    if isinstance(dados.columns, pd.MultiIndex):
+        dados.columns = dados.columns.get_level_values(0)
+
+    if "Close" not in dados.columns:
+        raise ValueError("A coluna 'Close' não foi encontrada nos dados.")
+
+    return dados
+
+
+def preparar_series(precos: np.ndarray, janela_dias: int):
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    precos_normalizados = scaler.fit_transform(precos)
+
+    X, y = [], []
+    for i in range(janela_dias, len(precos_normalizados)):
+        X.append(precos_normalizados[i - janela_dias:i, 0])
+        y.append(precos_normalizados[i, 0])
+
+    X = np.array(X)
+    y = np.array(y)
+
+    if len(X) == 0:
+        raise ValueError("Dados insuficientes para a janela escolhida.")
+
+    return X, y, scaler
+
+
+def log_tags_padronizadas(model_type: str, framework: str):
+    mlflow.set_tag("model_type", model_type)
+    mlflow.set_tag("framework", framework)
+    mlflow.set_tag("owner", "grupo-XX")
+    mlflow.set_tag("phase", "datathon-fase05")
+    mlflow.set_tag("problem_type", "regression")
+    mlflow.set_tag("dataset_type", "time_series")
+
 
 def main(args):
     ticker = args.ticker
@@ -68,112 +135,159 @@ def main(args):
     epocas = args.epochs
     batchsize = args.batch
 
-    print(f"Treinando modelos para {ticker} de {start_date} até {end_date}")
+    logger.info(
+        "Treinando modelos para %s | início=%s | fim=%s | janela=%s",
+        ticker,
+        start_date,
+        end_date,
+        janela_dias,
+    )
 
-    # Definir pasta raiz para salvar modelos
-    ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-    MODELS_DIR = os.path.join(ROOT_DIR, "models")
-    print(f"📂 Modelos serão salvos em: {MODELS_DIR}")
-    os.makedirs(MODELS_DIR, exist_ok=True)
+    root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    models_dir = os.path.join(root_dir, "models")
+    os.makedirs(models_dir, exist_ok=True)
 
-    # 1. Coleta de dados
-    dados = yf.download(ticker, start=start_date, end=end_date)
-    precos = dados[['Close']].values
+    dados = baixar_dados(ticker, start_date, end_date)
+    precos = dados[["Close"]].values
 
-    # 2. Normalização
-    scaler = MinMaxScaler(feature_range=(0,1))
-    precos_normalizados = scaler.fit_transform(precos)
-
-    # 3. Criar sequências
-    X, y = [], []
-    for i in range(janela_dias, len(precos_normalizados)):
-        X.append(precos_normalizados[i-janela_dias:i, 0])
-        y.append(precos_normalizados[i, 0])
-    X = np.array(X)
-    y = np.array(y)
-
-    # Reshape para Keras
+    X, y, scaler = preparar_series(precos, janela_dias)
     X_keras = np.reshape(X, (X.shape[0], X.shape[1], 1))
 
-    # Split treino/teste
+    # Split temporal
     tamanho_treino = int(len(X) * 0.8)
     X_train, X_test = X[:tamanho_treino], X[tamanho_treino:]
     y_train, y_test = y[:tamanho_treino], y[tamanho_treino:]
 
-    # ------------------ MLflow ------------------
+    X_train_keras, X_test_keras = X_keras[:tamanho_treino], X_keras[tamanho_treino:]
+
+    tracking_uri = f"sqlite:///{MLFLOW_DIR / 'mlflow.db'}"
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("previsao_acoes")
 
-    with mlflow.start_run():
+    with mlflow.start_run(run_name=f"train_{ticker}") as run:
+        # parâmetros globais
         mlflow.log_param("ticker", ticker)
+        mlflow.log_param("start_date", start_date)
+        mlflow.log_param("end_date", end_date)
         mlflow.log_param("janela", janela_dias)
         mlflow.log_param("epochs", epocas)
         mlflow.log_param("batch_size", batchsize)
+        mlflow.log_param("n_features", X_train.shape[1])
+        mlflow.log_param("n_samples_train", X_train.shape[0])
+        mlflow.log_param("n_samples_test", X_test.shape[0])
+        mlflow.log_param("split_type", "temporal_80_20")
 
-        # PyTorch
-        modelo_pytorch_path = os.path.join(MODELS_DIR, f"modelo_{ticker}_pytorch.pth")
+        log_tags_padronizadas(model_type="regression", framework="multiple")
+
+        # ------------------ Baseline Naive ------------------
+        y_pred_baseline = X_test[:, -1].reshape(-1, 1)
+        metrics_baseline = avaliar_regressao(y_test, y_pred_baseline, scaler)
+
+        mlflow.log_metric("mae_baseline", metrics_baseline["mae"])
+        mlflow.log_metric("rmse_baseline", metrics_baseline["rmse"])
+        mlflow.log_metric("mape_baseline", metrics_baseline["mape"])
+
+        logger.info(
+            "[Baseline] MAE=%.4f | RMSE=%.4f | MAPE=%.2f",
+            metrics_baseline["mae"],
+            metrics_baseline["rmse"],
+            metrics_baseline["mape"],
+        )
+
+        # ------------------ PyTorch ------------------
+        modelo_pytorch_path = os.path.join(models_dir, f"modelo_{ticker}_pytorch.pth")
         model_pytorch = treinar_pytorch(X_train, y_train, modelo_pytorch_path)
         model_pytorch.eval()
+
         with torch.no_grad():
             y_pred_torch = model_pytorch(torch.tensor(X_test, dtype=torch.float32)).numpy()
-        mae_torch, rmse_torch, mape_torch = avaliar(y_test, y_pred_torch, scaler)
-        print(f"[PyTorch] MAE={mae_torch:.2f}, RMSE={rmse_torch:.2f}, MAPE={mape_torch:.2f}%")
-        mlflow.log_metric("MAE_pytorch", mae_torch)
-        mlflow.log_metric("RMSE_pytorch", rmse_torch)
-        mlflow.log_metric("MAPE_pytorch", mape_torch)
 
-        # Regitra no Model Registry
+        metrics_torch = avaliar_regressao(y_test, y_pred_torch, scaler)
+        mlflow.log_metric("mae_pytorch", metrics_torch["mae"])
+        mlflow.log_metric("rmse_pytorch", metrics_torch["rmse"])
+        mlflow.log_metric("mape_pytorch", metrics_torch["mape"])
         mlflow.pytorch.log_model(model_pytorch, "pytorch_model")
 
-        # Scikit-Learn
-        modelo_sklearn_path = os.path.join(MODELS_DIR, f"modelo_{ticker}_sklearn.joblib")
-        mlp = MLPRegressor(hidden_layer_sizes=(64,32), max_iter=500)
+        logger.info(
+            "[PyTorch] MAE=%.4f | RMSE=%.4f | MAPE=%.2f",
+            metrics_torch["mae"],
+            metrics_torch["rmse"],
+            metrics_torch["mape"],
+        )
+
+        # ------------------ Scikit-Learn ------------------
+        modelo_sklearn_path = os.path.join(models_dir, f"modelo_{ticker}_sklearn.joblib")
+        mlp = MLPRegressor(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
         mlp.fit(X_train, y_train)
         joblib.dump(mlp, modelo_sklearn_path)
-        print(f"✅ Modelo Scikit-Learn salvo em {modelo_sklearn_path}")
-        
-        # Regitra no Model Registry
+
+        y_pred_sklearn = mlp.predict(X_test).reshape(-1, 1)
+        metrics_sklearn = avaliar_regressao(y_test, y_pred_sklearn, scaler)
+
+        mlflow.log_metric("mae_sklearn", metrics_sklearn["mae"])
+        mlflow.log_metric("rmse_sklearn", metrics_sklearn["rmse"])
+        mlflow.log_metric("mape_sklearn", metrics_sklearn["mape"])
         mlflow.sklearn.log_model(mlp, "sklearn_model")
 
-        y_pred_sklearn = mlp.predict(X_test).reshape(-1,1)
-        mae_sklearn, rmse_sklearn, mape_sklearn = avaliar(y_test, y_pred_sklearn, scaler)
-        print(f"[Scikit-Learn] MAE={mae_sklearn:.2f}, RMSE={rmse_sklearn:.2f}, MAPE={mape_sklearn:.2f}%")
-        mlflow.log_metric("MAE_sklearn", mae_sklearn)
-        mlflow.log_metric("RMSE_sklearn", rmse_sklearn)
-        mlflow.log_metric("MAPE_sklearn", mape_sklearn)
-        mlflow.sklearn.log_model(mlp, "sklearn_model")
+        logger.info(
+            "[Scikit] MAE=%.4f | RMSE=%.4f | MAPE=%.2f",
+            metrics_sklearn["mae"],
+            metrics_sklearn["rmse"],
+            metrics_sklearn["mape"],
+        )
 
-        # Keras opcional
+        # ------------------ Keras opcional ------------------
         if args.keras:
-            print("Treinando Keras (opcional)...")
+            logger.info("Treinando Keras...")
+
             modelo = Sequential([
                 Input(shape=(X_train.shape[1], 1)),
                 LSTM(units=50, return_sequences=True),
                 Dropout(0.2),
                 LSTM(units=50, return_sequences=False),
                 Dropout(0.2),
-                Dense(units=1)
+                Dense(units=1),
             ])
-            modelo.compile(optimizer='adam', loss='mean_squared_error')
-            early_stop = EarlyStopping(monitor='val_loss', patience=args.patience, restore_best_weights=True)
-            modelo.fit(X_train.reshape(X_train.shape[0], X_train.shape[1], 1), y_train,
-                       epochs=epocas,
-                       batch_size=batchsize,
-                       validation_data=(X_test.reshape(X_test.shape[0], X_test.shape[1], 1), y_test),
-                       callbacks=[early_stop])
-            modelo_keras_path = os.path.join(MODELS_DIR, f"modelo_{ticker}.keras")
+
+            modelo.compile(optimizer="adam", loss="mean_squared_error")
+
+            early_stop = EarlyStopping(
+                monitor="val_loss",
+                patience=args.patience,
+                restore_best_weights=True,
+            )
+
+            modelo.fit(
+                X_train_keras,
+                y_train,
+                epochs=epocas,
+                batch_size=batchsize,
+                validation_data=(X_test_keras, y_test),
+                callbacks=[early_stop],
+                verbose=1,
+            )
+
+            modelo_keras_path = os.path.join(models_dir, f"modelo_{ticker}.keras")
             modelo.save(modelo_keras_path)
-            print(f"✅ Modelo Keras salvo em {modelo_keras_path}")
 
-            # Regitra no Model Registry
+            y_pred_keras = modelo.predict(X_test_keras)
+            metrics_keras = avaliar_regressao(y_test, y_pred_keras, scaler)
+
+            mlflow.log_metric("mae_keras", metrics_keras["mae"])
+            mlflow.log_metric("rmse_keras", metrics_keras["rmse"])
+            mlflow.log_metric("mape_keras", metrics_keras["mape"])
             mlflow.tensorflow.log_model(modelo, "keras_model")
 
-            y_pred_keras = modelo.predict(X_test.reshape(X_test.shape[0], X_test.shape[1], 1))
-            mae_keras, rmse_keras, mape_keras = avaliar(y_test, y_pred_keras, scaler)
-            print(f"[Keras] MAE={mae_keras:.2f}, RMSE={rmse_keras:.2f}, MAPE={mape_keras:.2f}%")
-            mlflow.log_metric("MAE_keras", mae_keras)
-            mlflow.log_metric("RMSE_keras", rmse_keras)
-            mlflow.log_metric("MAPE_keras", mape_keras)
-            mlflow.tensorflow.log_model(modelo, "keras_model")
+            logger.info(
+                "[Keras] MAE=%.4f | RMSE=%.4f | MAPE=%.2f",
+                metrics_keras["mae"],
+                metrics_keras["rmse"],
+                metrics_keras["mape"],
+            )
+
+        logger.info("Run finalizado com run_id=%s", run.info.run_id)
+        print(f"run_id={run.info.run_id}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Treinar modelos para previsão de preços")
@@ -183,8 +297,7 @@ if __name__ == "__main__":
     parser.add_argument("--janela", type=int, default=90, help="Tamanho da janela de dias")
     parser.add_argument("--epochs", type=int, default=40, help="Número de épocas")
     parser.add_argument("--batch", type=int, default=32, help="Tamanho do batch")
-    parser.add_argument("--patience", type=int, default=4, help="Número de épocas sem melhora antes de parar o treino")
-    parser.add_argument("--keras", action="store_true", help="Treinar também modelo Keras como fallback")
+    parser.add_argument("--patience", type=int, default=4, help="Early stopping do Keras")
+    parser.add_argument("--keras", action="store_true", help="Treinar também modelo Keras")
     args = parser.parse_args()
     main(args)
-    
