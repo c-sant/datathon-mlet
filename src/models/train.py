@@ -99,6 +99,29 @@ def baixar_dados(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
 
     return dados
 
+def carregar_dados_csv(csv_path: str) -> pd.DataFrame:
+    logger.info("Lendo dados do CSV: %s", csv_path)
+
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"Arquivo CSV não encontrado: {csv_path}")
+
+    # tenta ler CSV gerado pelo yfinance com cabeçalho multinível
+    try:
+        dados = pd.read_csv(csv_path, header=[0, 1], index_col=0, parse_dates=True)
+
+        if isinstance(dados.columns, pd.MultiIndex):
+            dados.columns = dados.columns.get_level_values(0)
+
+    except Exception:
+        dados = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+
+    if "Close" not in dados.columns:
+        raise ValueError(f"A coluna 'Close' não foi encontrada no CSV. Colunas encontradas: {list(dados.columns)}")
+
+    dados["Close"] = pd.to_numeric(dados["Close"], errors="coerce")
+    dados = dados.dropna(subset=["Close"])
+
+    return dados
 
 def preparar_series(precos: np.ndarray, janela_dias: int):
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -147,7 +170,9 @@ def main(args):
     models_dir = os.path.join(root_dir, "models")
     os.makedirs(models_dir, exist_ok=True)
 
-    dados = baixar_dados(ticker, start_date, end_date)
+    #dados = baixar_dados(ticker, start_date, end_date)
+    dados = carregar_dados_csv(args.data_path)
+
     precos = dados[["Close"]].values
 
     X, y, scaler = preparar_series(precos, janela_dias)
@@ -299,5 +324,6 @@ if __name__ == "__main__":
     parser.add_argument("--batch", type=int, default=32, help="Tamanho do batch")
     parser.add_argument("--patience", type=int, default=4, help="Early stopping do Keras")
     parser.add_argument("--keras", action="store_true", help="Treinar também modelo Keras")
+    parser.add_argument("--data-path", type=str, default="data/raw/stock_data.csv", help="Caminho do CSV de entrada")
     args = parser.parse_args()
     main(args)

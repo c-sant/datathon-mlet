@@ -1,0 +1,54 @@
+stages:
+  ingest:
+    cmd: >
+      python data/ingest.py
+      --ticker ${data.ticker}
+      --start ${data.start}
+      --end ${data.end}
+      --output ${data.output}
+    deps:
+      - data/ingest.py
+    outs:
+      - ${data.output}
+    params:
+      - data
+
+  train:
+    cmd: >
+      python src/models/train.py
+      --ticker ${train.ticker}
+      --start ${train.start}
+      --end ${train.end}
+      --janela ${train.janela}
+      --epochs ${train.epochs}
+      --batch ${train.batch}
+      --data-path ${train.data_path}
+    deps:
+      - src/models/train.py
+      - ${data.output}
+      - requirements.txt
+    outs:
+      - models
+      - mlflow/mlflow.db
+    params:
+      - train
+      - data.output
+
+  baseline:
+    cmd: >
+      python src/models/baseline.py
+      --ticker ${baseline.ticker}
+      --start ${baseline.start}
+      --end ${baseline.end}
+      --janela ${baseline.janela}
+      --modelo-pytorch ${baseline.modelo_pytorch}
+      --modelo-sklearn ${baseline.modelo_sklearn}
+      --data-path ${baseline.data_path}
+    deps:
+      - src/models/baseline.py
+      - ${data.output}
+      - models
+      - requirements.txt
+    params:
+      - baseline
+      - data.output

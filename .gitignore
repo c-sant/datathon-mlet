@@ -216,3 +216,8 @@ __pycache__/
 data/
 *.db
 *.pyc
+/models
+
+mlflow/mlruns/
+*.pth
+*.joblib

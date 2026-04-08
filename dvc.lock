@@ -1,0 +1,92 @@
+schema: '2.0'
+stages:
+  train:
+    cmd: "python src/models/train.py --ticker ITUB4.SA --start 2025-04-01 --end 2026-04-30
+      --janela 90 --epochs 40 --batch 32 --data-path data/raw/stock_data.csv\n"
+    deps:
+    - path: data/raw/stock_data.csv
+      hash: md5
+      md5: d78f1e7af51a6b2f2cea880d1c194970
+      size: 23579
+    - path: requirements.txt
+      hash: md5
+      md5: 3a18033b91e1cba89adcdb338118c6f8
+      size: 3298
+    - path: src/models/train.py
+      hash: md5
+      md5: 0d5cd28a0039de394055a28c085da15d
+      size: 11935
+    params:
+      params.yaml:
+        data.output: data/raw/stock_data.csv
+        train:
+          ticker: ITUB4.SA
+          start: '2025-04-01'
+          end: '2026-04-30'
+          janela: 90
+          epochs: 40
+          batch: 32
+          data_path: data/raw/stock_data.csv
+    outs:
+    - path: mlflow/mlflow.db
+      hash: md5
+      md5: 2fea03546cf3a11a0dffa94d88347a79
+      size: 663552
+    - path: models
+      hash: md5
+      md5: 0bcd3acf643650a6e7e11dafa3b0841f.dir
+      size: 297185
+      nfiles: 2
+  baseline:
+    cmd: "python src/models/baseline.py --ticker ITUB4.SA --start 2025-04-01 --end
+      2026-04-30 --janela 90 --modelo-pytorch models/modelo_ITUB4.SA_pytorch.pth --modelo-sklearn
+      models/modelo_ITUB4.SA_sklearn.joblib --data-path data/raw/stock_data.csv\n"
+    deps:
+    - path: data/raw/stock_data.csv
+      hash: md5
+      md5: d78f1e7af51a6b2f2cea880d1c194970
+      size: 23579
+    - path: models
+      hash: md5
+      md5: 0bcd3acf643650a6e7e11dafa3b0841f.dir
+      size: 297185
+      nfiles: 2
+    - path: requirements.txt
+      hash: md5
+      md5: 3a18033b91e1cba89adcdb338118c6f8
+      size: 3298
+    - path: src/models/baseline.py
+      hash: md5
+      md5: 15af0236495fa40f0c9f4f0a2aad8c07
+      size: 7455
+    params:
+      params.yaml:
+        baseline:
+          ticker: ITUB4.SA
+          start: '2025-04-01'
+          end: '2026-04-30'
+          janela: 90
+          modelo_pytorch: models/modelo_ITUB4.SA_pytorch.pth
+          modelo_sklearn: models/modelo_ITUB4.SA_sklearn.joblib
+          data_path: data/raw/stock_data.csv
+        data.output: data/raw/stock_data.csv
+  ingest:
+    cmd: "python data/ingest.py --ticker ITUB4.SA --start 2025-04-01 --end 2026-04-30
+      --output data/raw/stock_data.csv\n"
+    deps:
+    - path: data/ingest.py
+      hash: md5
+      md5: 2480f5fa20b91724628704b48879074d
+      size: 867
+    params:
+      params.yaml:
+        data:
+          ticker: ITUB4.SA
+          start: '2025-04-01'
+          end: '2026-04-30'
+          output: data/raw/stock_data.csv
+    outs:
+    - path: data/raw/stock_data.csv
+      hash: md5
+      md5: d78f1e7af51a6b2f2cea880d1c194970
+      size: 23579

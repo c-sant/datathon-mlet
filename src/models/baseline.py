@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import pandas as pd
-import yfinance as yf
+#import yfinance as yf
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -57,6 +57,29 @@ def carregar_pytorch(X_test, modelo_path="modelo_pytorch.pth"):
         y_pred = model(X_test_t).numpy()
     return y_pred
 
+def carregar_dados_csv(csv_path: str) -> pd.DataFrame:
+    print(f"Lendo dados do CSV: {csv_path}")
+
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"Arquivo CSV não encontrado: {csv_path}")
+
+    try:
+        dados = pd.read_csv(csv_path, header=[0, 1], index_col=0, parse_dates=True)
+
+        if isinstance(dados.columns, pd.MultiIndex):
+            dados.columns = dados.columns.get_level_values(0)
+
+    except Exception:
+        dados = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+
+    if "Close" not in dados.columns:
+        raise ValueError(f"A coluna 'Close' não foi encontrada no CSV. Colunas encontradas: {list(dados.columns)}")
+
+    dados["Close"] = pd.to_numeric(dados["Close"], errors="coerce")
+    dados = dados.dropna(subset=["Close"])
+
+    return dados
+
 # ------------------ Avaliação de métricas ------------------
 def avaliar_modelo(y_real, y_pred, nome_modelo, scaler):
     y_real_inv = scaler.inverse_transform(y_real.reshape(-1,1))
@@ -85,13 +108,9 @@ def main(args):
 
     print(f"Avaliando {ticker} de {start} até {end} | janela={janela}")
 
-    # ------------------ Coletar dados ------------------
-    dados = yf.download(ticker, start=start, end=end)
-
-    if dados.empty:
-        raise ValueError("Nenhum dado retornado. Verifique ticker ou datas.")
-
-    precos = dados[['Close']].values
+    # ------------------ Ler dados do CSV ------------------
+    dados = carregar_dados_csv(args.data_path)
+    precos = dados[["Close"]].values
 
     # ------------------ Normalizar ------------------
     scaler = MinMaxScaler(feature_range=(0,1))
@@ -197,6 +216,9 @@ if __name__ == "__main__":
 
     parser.add_argument("--keras", action="store_true",
                         help="Ativar uso de modelo Keras")
+    
+    parser.add_argument("--data-path", type=str, default="data/raw/stock_data.csv",
+                        help="Caminho do CSV de entrada")
 
     args = parser.parse_args()
     main(args)
