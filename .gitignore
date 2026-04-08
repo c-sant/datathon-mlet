@@ -216,4 +216,3 @@ __pycache__/
 data/
 *.db
 *.pyc
-.dvc/
