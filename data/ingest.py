@@ -7,12 +7,7 @@ import yfinance as yf
 def main(args):
     print(f"Baixando dados: {args.ticker}")
 
-    df = yf.download(
-        args.ticker,
-        start=args.start,
-        end=args.end,
-        progress=False
-    )
+    df = yf.download(args.ticker, start=args.start, end=args.end, progress=False)
 
     if df.empty:
         raise ValueError("Nenhum dado retornado")
