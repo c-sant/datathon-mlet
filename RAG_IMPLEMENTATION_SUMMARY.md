@@ -134,9 +134,14 @@ python run_local.py
 
 ### Teste da API
 ```powershell
-cd src\rag
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+cd src
+uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+> Se estiver no root do projeto, use:
+> ```powershell
+> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> ```
 
 **Endpoints:**
 - `GET /query?q=Sua%20pergunta` → Consulta RAG

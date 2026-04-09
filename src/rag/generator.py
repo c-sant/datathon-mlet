@@ -26,39 +26,39 @@ def _get_generator():
     
     # Se o modelo for "simulated", usar sempre o modo simulado
     if RAG_MODEL == "simulated":
-        print("💡 Usando modo simulado (respostas perfeitas em português)")
+        print("Usando modo simulado (respostas perfeitas em português)")
         return None
     
     if _generator is None:
-        print(f"📦 Carregando modelo {RAG_MODEL}... (primeira execução)")
+        print(f"Carregando modelo {RAG_MODEL}... (primeira execução)")
         
         # Tenta com a variável de ambiente RAG_MODEL
         try:
             _generator = pipeline("text-generation", model=RAG_MODEL)
             return _generator
         except Exception as e:
-            print(f"⚠️ Falha ao carregar {RAG_MODEL}: {type(e).__name__}")
+            print(f"Falha ao carregar {RAG_MODEL}: {type(e).__name__}")
             
             # Fallback 1: Tentar facebook/opt-1.3b se o modelo português falhou
             if RAG_MODEL != "facebook/opt-1.3b":
                 try:
-                    print("📦 Tentando fallback: facebook/opt-1.3b...")
+                    print("Tentando fallback: facebook/opt-1.3b...")
                     _generator = pipeline("text-generation", model="facebook/opt-1.3b")
                     return _generator
                 except Exception as e2:
-                    print(f"⚠️ Falha ao carregar facebook/opt-1.3b: {type(e2).__name__}")
+                    print(f"Falha ao carregar facebook/opt-1.3b: {type(e2).__name__}")
             
             # Fallback 2: Tentar distilgpt2
             if RAG_MODEL != "distilgpt2":
                 try:
-                    print("📦 Tentando fallback: distilgpt2...")
+                    print("Tentando fallback: distilgpt2...")
                     _generator = pipeline("text-generation", model="distilgpt2")
                     return _generator
                 except Exception as e3:
-                    print(f"⚠️ Falha ao carregar distilgpt2: {type(e3).__name__}")
+                    print(f"Falha ao carregar distilgpt2: {type(e3).__name__}")
             
             # Fallback 3: Modo offline sem modelo real
-            print("⚠️ Não conseguindo carregar modelo. Usando modo simulado...")
+            print("Não conseguindo carregar modelo. Usando modo simulado...")
             return None
     
     return _generator
@@ -87,13 +87,13 @@ def generate_answer(query, context, max_new_tokens=256):
         try:
             return _call_bento_generator(query, context)
         except Exception as exc:
-            print(f"⚠️ Falha ao chamar Bento generator: {exc}. Usando fallback local.")
+            print(f"Falha ao chamar Bento generator: {exc}. Usando fallback local.")
 
     generator = _get_generator()
     
     # Fallback: Se não conseguir carregar modelo, gera resposta simulada contextual
     if generator is None:
-        print("💡 Usando resposta simulada (modelo indisponível)")
+        print("Usando resposta simulada (modelo indisponível)")
         return _generate_simulated_answer(query, context)
     
     # Prompt melhorado para português

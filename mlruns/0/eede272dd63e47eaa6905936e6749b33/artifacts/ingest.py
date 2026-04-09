@@ -95,7 +95,7 @@ def ingest_documents(documents, overwrite=True, log_run=True):
             mlflow.log_artifact(__file__)
 
     print(
-        "Ingestão concluída. Documentos coletados, chunkados e embeddings armazenados no FAISS."
+        "✅ Ingestão concluída. Documentos coletados, chunkados e embeddings armazenados no FAISS."
     )
 
     return {
@@ -108,4 +108,4 @@ def ingest_documents(documents, overwrite=True, log_run=True):
 try:
     ingest_documents(load_news(), overwrite=True, log_run=True)
 except Exception as exc:
-    print(f"Falha na ingestão inicial de notícias: {exc}")
+    print(f"⚠️ Falha na ingestão inicial de notícias: {exc}")

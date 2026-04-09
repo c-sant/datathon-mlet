@@ -122,9 +122,14 @@ Para testar ingestão dinâmica e consultas via API:
 
 ### Iniciar API
 ```bash
-cd src\rag
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+cd src
+uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+> Se estiver no root do projeto, execute:
+> ```bash
+> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> ```
 
 ### Testar Ingestão
 ```bash
@@ -158,6 +163,19 @@ curl "http://localhost:8000/query?q=Quais%20ações%20são%20recomendadas?"
 }
 ```
 
+### Teste via Navegador
+Se o servidor estiver rodando, abra `api_test.html` no navegador ou sirva a pasta do projeto com um servidor HTTP simples.
+
+1. Abra o arquivo localmente no navegador: `api_test.html`
+2. Se preferir servir via HTTP:
+```bash
+python -m http.server 8001
+```
+3. Acesse `http://localhost:8001/api_test.html`
+4. Use os formulários "Ingest" e "Query" para enviar solicitações para `http://localhost:8000`.
+
+> O arquivo `api_test.html` já contém campos para JSON de ingestão e consulta de texto.
+
 ## 5. Teste com Modelo Avançado (BentoML)
 Para usar o modelo OPT-1.3B via vLLM:
 
@@ -176,9 +194,14 @@ bentoml serve app:svc --port 3000
 ### Iniciar API RAG
 Terminal 2:
 ```bash
-cd src\rag
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+cd src
+uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+> Alternativa do root do projeto:
+> ```bash
+> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> ```
 
 Agora as consultas usarão o modelo OPT-1.3B em vez do fallback local.
 

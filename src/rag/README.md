@@ -149,9 +149,14 @@ bentoml serve app:svc --port 3000
 
 ### 3. Executar API RAG
 ```bash
-cd src/rag
-uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+cd src
+uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
 ```
+
+> Se você estiver no root do projeto, também pode usar:
+> ```bash
+> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> ```
 
 ### 4. Testar Localmente
 ```bash
