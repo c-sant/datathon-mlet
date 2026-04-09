@@ -2,9 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# Copia o requirements.txt e instala dependências
+COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir vllm uvicorn torch==2.2.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir torch==2.2.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
 EXPOSE 8000
 
-CMD ["python", "-m", "vllm.entrypoints.openai.api_server", "--model", "pierreguillou/gpt2-small-portuguese", "--host", "0.0.0.0", "--port", "8000", "--device", "cpu"]
+CMD ["python", "-m", "vllm.entrypoints.openai.api_server", "--model", "facebook/opt-1.3b", "--host", "0.0.0.0", "--port", "8000", "--device", "cpu"]

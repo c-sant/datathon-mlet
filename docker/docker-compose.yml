@@ -1,38 +1,39 @@
 services:
-#  vllm:
-#    build:
-#      context: ..
-#      dockerfile: docker/Dockerfile.vllm
-#    container_name: vllm-server
-#    ports:
-#      - "8001:8000"
-#    environment:
-#      VLLM_DEVICE: "cpu"
-#      VLLM_LOGGING_LEVEL: "DEBUG"
-
-  bentoml:
+  vllm:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.bento
+      context: .
+      dockerfile: Dockerfile.vllm
+    container_name: vllm
     ports:
-      - "8002:3000"
-#    depends_on:
-#      - vllm
-
+      - "8001:8000"
 #  api:
 #    build:
-#      context: ..
-#      dockerfile: docker/Dockerfile.api
+#      context: .
+#      dockerfile: Dockerfile.api
+#    container_name: api
 #    ports:
 #      - "8000:8000"
-#    depends_on:
-#      - bentoml
+##    depends_on:
+##      - bentoml
+##      - vllm
 
+#  bentoml:
+#    build:
+#      context: .
+#      dockerfile: Dockerfile.bento
+#    container_name: bentoml
+#    ports:
+#      - "3000:3000"
+#    depends_on:
+#      - vllm
+#
 #  mlflow:
 #    build:
-#      context: ..
-#      dockerfile: docker/Dockerfile.mlflow
+#      context: .
+#      dockerfile: Dockerfile.mlflow
+#    container_name: mlflow
 #    ports:
 #      - "5000:5000"
 #    volumes:
-#      - ../mlruns:/mlruns
+#      - ./mlruns:/mlruns
+#      - ./mlflow.db:/app/mlflow.db

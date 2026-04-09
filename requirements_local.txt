@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+pydantic
+requests
+sentence-transformers==2.3.1
+transformers==4.34.0
+torch==2.0.1+cpu
+numpy==1.26.4
+faiss-cpu
+newspaper3k
+lxml_html_clean
+mlflow
