@@ -159,7 +159,13 @@ def main(args):
         else:
             print(f"Modelo Keras não encontrado: {modelo_path}")
 
+    # ------------------ Baseline (naive) ------------------
+    y_pred_baseline = X[:, -1].reshape(-1, 1)
+    resultado_baseline = avaliar_modelo(y, y_pred_baseline, "Baseline", scaler)
+
+    # ------------------ Avaliação ------------------
     resultados = []
+    resultados.append(resultado_baseline)
     resultados.append(avaliar_modelo(y, y_pred_torch, "PyTorch", scaler))
     resultados.append(avaliar_modelo(y, y_pred_sklearn, "Scikit", scaler))
 

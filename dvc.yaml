@@ -67,3 +67,13 @@ stages:
       - baseline
       - train.janela
       - data.output
+
+  plots:
+    cmd: python src/utils/plot_metrics.py
+    deps:
+      - src/utils/plot_metrics.py
+      - reports/metrics.json
+    outs:
+      - reports/comparacao_modelos.png
+      - reports/ranking_mae.png
+      - reports/mape.png

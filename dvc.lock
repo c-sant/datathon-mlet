@@ -75,8 +75,8 @@ stages:
       size: 1584
     - path: src/models/baseline.py
       hash: md5
-      md5: 07826e5b1b7738a32909860ba5d25b95
-      size: 7641
+      md5: 8ede5fde9ae5a001628dd66b10bf4534
+      size: 7927
     params:
       params.yaml:
         baseline:
@@ -92,12 +92,12 @@ stages:
     outs:
     - path: reports/metrics.json
       hash: md5
-      md5: e7098b976424698df3e47beebd6a0e90
-      size: 296
+      md5: 40866e3c26ceb3918372e3323f3100e4
+      size: 371
     - path: reports/metrics_comparison.csv
       hash: md5
-      md5: 5f1a3a81b35d41f938c3c5426537407d
-      size: 123
+      md5: d8d7d4d246c8ad4c4ec43aab668e05d4
+      size: 149
   ingest:
     cmd: "python data/ingest.py --ticker ITUB4.SA --start 2025-04-01 --end 2026-04-30
       --output data/raw/stock_data.csv\n"
@@ -118,3 +118,77 @@ stages:
       hash: md5
       md5: 94a2af7394e7b111623b2f0bf5cf2471
       size: 23755
+  plots:
+    cmd: python src/utils/plot_metrics.py
+    deps:
+    - path: reports/metrics.json
+      hash: md5
+      md5: 40866e3c26ceb3918372e3323f3100e4
+      size: 371
+    - path: src/utils/plot_metrics.py
+      hash: md5
+      md5: 79a8263b6ac73fd4c12904e132e41508
+      size: 1691
+    outs:
+    - path: reports/comparacao_modelos.png
+      hash: md5
+      md5: 3ba7794412a57d5867bb7cc90de8778f
+      size: 22005
+    - path: reports/mape.png
+      hash: md5
+      md5: 06bba79de6468f5cefe3f7f30a84f61a
+      size: 19484
+    - path: reports/ranking_mae.png
+      hash: md5
+      md5: af0807a163bcdc66b27618789d61ad11
+      size: 19472
+  trading:
+    cmd: "python src/utils/trading_simulation.py --data-path data/raw/stock_data.csv
+      --janela 90 --modelo-pytorch models/modelo_ITUB4.SA_pytorch.pth --modelo-sklearn
+      models/modelo_ITUB4.SA_sklearn.joblib --modelo-keras models/modelo_ITUB4.SA.keras
+      --keras\n"
+    deps:
+    - path: data/raw/stock_data.csv
+      hash: md5
+      md5: 94a2af7394e7b111623b2f0bf5cf2471
+      size: 23755
+    - path: models/modelo_ITUB4.SA.keras
+      hash: md5
+      md5: 548e85970cf5d469406762d730e90610
+      size: 404486
+    - path: models/modelo_ITUB4.SA_pytorch.pth
+      hash: md5
+      md5: 60b7da670af7f148a114b4e2c468f57d
+      size: 35029
+    - path: models/modelo_ITUB4.SA_sklearn.joblib
+      hash: md5
+      md5: 164e2e0c6bfde57a4853b812acb70ae4
+      size: 262156
+    - path: pyproject.toml
+      hash: md5
+      md5: d08226a3850c513722f1e8cfd68022fe
+      size: 1584
+    - path: src/utils/trading_simulation.py
+      hash: md5
+      md5: 7f9b422f359beda59dd5c9e5d63af991
+      size: 7763
+    params:
+      params.yaml:
+        baseline.data_path: data/raw/stock_data.csv
+        baseline.modelo_keras: models/modelo_ITUB4.SA.keras
+        baseline.modelo_pytorch: models/modelo_ITUB4.SA_pytorch.pth
+        baseline.modelo_sklearn: models/modelo_ITUB4.SA_sklearn.joblib
+        train.janela: 90
+    outs:
+    - path: reports/trading_equity_curve.png
+      hash: md5
+      md5: e1dbfbccb4da72df31c526845aaf8c74
+      size: 119644
+    - path: reports/trading_metrics.json
+      hash: md5
+      md5: 4dea309bd91ded855947872daebfbe5a
+      size: 855
+    - path: reports/trading_simulation.csv
+      hash: md5
+      md5: 85962ae04bdab93a01c6b0dc516d943e
+      size: 274
