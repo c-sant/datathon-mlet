@@ -230,3 +230,4 @@ reports/
 # dados
 data/raw/
 *.csv
+/models

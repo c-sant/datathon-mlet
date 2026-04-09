@@ -17,7 +17,7 @@ baseline:
   ticker: ITUB4.SA
   start: "2025-04-01"
   end: "2026-04-30"
-  janela: 90
   modelo_pytorch: models/modelo_ITUB4.SA_pytorch.pth
   modelo_sklearn: models/modelo_ITUB4.SA_sklearn.joblib
-  data_path: data/raw/stock_data.csv  
+  modelo_keras: models/modelo_ITUB4.SA.keras
+  data_path: data/raw/stock_data.csv

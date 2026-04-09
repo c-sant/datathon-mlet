@@ -23,37 +23,47 @@ stages:
       --epochs ${train.epochs}
       --batch ${train.batch}
       --data-path ${train.data_path}
+      --keras
     deps:
       - src/models/train.py
       - ${data.output}
-      - requirements.txt
+      - pyproject.toml
     outs:
-      - models
+      - ${baseline.modelo_pytorch}
+      - ${baseline.modelo_sklearn}
+      - ${baseline.modelo_keras}
       - mlflow/mlflow.db
     params:
       - train
+      - baseline.modelo_pytorch
+      - baseline.modelo_sklearn
+      - baseline.modelo_keras
       - data.output
 
   baseline:
     cmd: >
-     python src/models/baseline.py
-     --ticker ${baseline.ticker}
-     --start ${baseline.start}
-     --end ${baseline.end}
-     --janela ${train.janela}
-     --modelo-pytorch ${baseline.modelo_pytorch}
-     --modelo-sklearn ${baseline.modelo_sklearn}
-     --data-path ${baseline.data_path}
+      python src/models/baseline.py
+      --ticker ${baseline.ticker}
+      --start ${baseline.start}
+      --end ${baseline.end}
+      --janela ${train.janela}
+      --modelo-pytorch ${baseline.modelo_pytorch}
+      --modelo-sklearn ${baseline.modelo_sklearn}
+      --modelo ${baseline.modelo_keras}
+      --keras
+      --data-path ${baseline.data_path}
     deps:
-     - src/models/baseline.py
-     - ${data.output}
-     - models
-     - requirements.txt
+      - src/models/baseline.py
+      - ${data.output}
+      - ${baseline.modelo_pytorch}
+      - ${baseline.modelo_sklearn}
+      - ${baseline.modelo_keras}
+      - pyproject.toml
     outs:
-     - reports/metrics_comparison.csv
+      - reports/metrics_comparison.csv
     metrics:
-     - reports/metrics.json
+      - reports/metrics.json
     params:
-     - baseline
-     - train.janela
-     - data.output
+      - baseline
+      - train.janela
+      - data.output

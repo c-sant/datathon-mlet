@@ -7,12 +7,25 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y \
     git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir dvc mlflow
+# Git fix
+RUN git config --global --add safe.directory /app
+
+# cria usuário
+RUN useradd -m appuser
+
+# COPY otimizado
+COPY pyproject.toml .
+COPY README.md .
+COPY src/ src/
+
+RUN pip install --upgrade pip && pip install .
 
 COPY . .
+
+# troca usuário
+USER appuser
 
 CMD ["dvc", "repro"]

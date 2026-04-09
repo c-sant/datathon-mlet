@@ -1,8 +1,7 @@
-# src/models/train.py
-"""Pipeline de treinamento com MLflow tracking padronizado para regressão."""
 import argparse
 import logging
 import os
+from pathlib import Path
 
 import joblib
 import mlflow
@@ -14,26 +13,23 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import yfinance as yf
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras import Input, Sequential
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
-from pathlib import Path
+
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 MLFLOW_DIR = ROOT_DIR / "mlflow"
 MLFLOW_DIR.mkdir(exist_ok=True)
 (MLFLOW_DIR / "artifacts").mkdir(exist_ok=True)
 
-
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 
-# ------------------ PyTorch ------------------
 class MLP_PyTorch(nn.Module):
     def __init__(self, input_dim: int):
         super().__init__()
@@ -85,33 +81,16 @@ def avaliar_regressao(y_true: np.ndarray, y_pred: np.ndarray, scaler: MinMaxScal
     }
 
 
-def baixar_dados(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
-    dados = yf.download(ticker, start=start_date, end=end_date, progress=False)
-
-    if dados is None or dados.empty:
-        raise ValueError(f"Não foi possível baixar dados para o ticker {ticker}")
-
-    if isinstance(dados.columns, pd.MultiIndex):
-        dados.columns = dados.columns.get_level_values(0)
-
-    if "Close" not in dados.columns:
-        raise ValueError("A coluna 'Close' não foi encontrada nos dados.")
-
-    return dados
-
 def carregar_dados_csv(csv_path: str) -> pd.DataFrame:
     logger.info("Lendo dados do CSV: %s", csv_path)
 
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"Arquivo CSV não encontrado: {csv_path}")
 
-    # tenta ler CSV gerado pelo yfinance com cabeçalho multinível
     try:
         dados = pd.read_csv(csv_path, header=[0, 1], index_col=0, parse_dates=True)
-
         if isinstance(dados.columns, pd.MultiIndex):
             dados.columns = dados.columns.get_level_values(0)
-
     except Exception:
         dados = pd.read_csv(csv_path, index_col=0, parse_dates=True)
 
@@ -122,6 +101,7 @@ def carregar_dados_csv(csv_path: str) -> pd.DataFrame:
     dados = dados.dropna(subset=["Close"])
 
     return dados
+
 
 def preparar_series(precos: np.ndarray, janela_dias: int):
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -170,15 +150,12 @@ def main(args):
     models_dir = os.path.join(root_dir, "models")
     os.makedirs(models_dir, exist_ok=True)
 
-    #dados = baixar_dados(ticker, start_date, end_date)
     dados = carregar_dados_csv(args.data_path)
-
     precos = dados[["Close"]].values
 
     X, y, scaler = preparar_series(precos, janela_dias)
     X_keras = np.reshape(X, (X.shape[0], X.shape[1], 1))
 
-    # Split temporal
     tamanho_treino = int(len(X) * 0.8)
     X_train, X_test = X[:tamanho_treino], X[tamanho_treino:]
     y_train, y_test = y[:tamanho_treino], y[tamanho_treino:]
@@ -190,7 +167,6 @@ def main(args):
     mlflow.set_experiment("previsao_acoes")
 
     with mlflow.start_run(run_name=f"train_{ticker}") as run:
-        # parâmetros globais
         mlflow.log_param("ticker", ticker)
         mlflow.log_param("start_date", start_date)
         mlflow.log_param("end_date", end_date)
@@ -201,10 +177,10 @@ def main(args):
         mlflow.log_param("n_samples_train", X_train.shape[0])
         mlflow.log_param("n_samples_test", X_test.shape[0])
         mlflow.log_param("split_type", "temporal_80_20")
+        mlflow.log_param("data_source", args.data_path)
 
         log_tags_padronizadas(model_type="regression", framework="multiple")
 
-        # ------------------ Baseline Naive ------------------
         y_pred_baseline = X_test[:, -1].reshape(-1, 1)
         metrics_baseline = avaliar_regressao(y_test, y_pred_baseline, scaler)
 
@@ -219,7 +195,6 @@ def main(args):
             metrics_baseline["mape"],
         )
 
-        # ------------------ PyTorch ------------------
         modelo_pytorch_path = os.path.join(models_dir, f"modelo_{ticker}_pytorch.pth")
         model_pytorch = treinar_pytorch(X_train, y_train, modelo_pytorch_path)
         model_pytorch.eval()
@@ -240,7 +215,6 @@ def main(args):
             metrics_torch["mape"],
         )
 
-        # ------------------ Scikit-Learn ------------------
         modelo_sklearn_path = os.path.join(models_dir, f"modelo_{ticker}_sklearn.joblib")
         mlp = MLPRegressor(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
         mlp.fit(X_train, y_train)
@@ -261,7 +235,6 @@ def main(args):
             metrics_sklearn["mape"],
         )
 
-        # ------------------ Keras opcional ------------------
         if args.keras:
             logger.info("Treinando Keras...")
 
