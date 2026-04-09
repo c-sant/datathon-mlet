@@ -22,6 +22,38 @@ Estamos **bem estruturados até os níveis 2 e 3**, garantindo rastreabilidade, 
 
 ## 🔹 Sistema RAG (Retrieval-Augmented Generation)
 
+### 📖 O que é RAG?
+
+**Retrieval-Augmented Generation (RAG)** é uma arquitetura de IA que combina **recuperação de informação** com **geração de texto**, permitindo que modelos de linguagem respondam com base em dados externos atualizados, em vez de apenas seu conhecimento pré-treinado.
+
+#### 🎯 **Conceito Teórico:**
+- **Limitação dos LLMs tradicionais**: Modelos como GPT são treinados em dados até uma data específica e podem "alucinar" informações desatualizadas ou incorretas
+- **Solução RAG**: Integra uma base de conhecimento externa que é consultada em tempo real para fornecer contexto relevante
+- **Vantagem**: Respostas mais precisas, atualizadas e fundamentadas em dados verificáveis
+
+#### ⚙️ **Arquitetura Técnica:**
+```
+1. 📥 INGESTÃO: Documentos → Chunking → Embeddings → Vetorização (FAISS)
+2. 🔍 RETRIEVAL: Query → Embedding → Busca semântica → Top-K chunks relevantes  
+3. 🤖 GENERATION: Query + Contexto → LLM → Resposta contextualizada
+```
+
+**Componentes principais:**
+- **Embedder**: SentenceTransformers (all-MiniLM-L6-v2) para criar representações vetoriais
+- **Vector Store**: FAISS com índice L2 para busca eficiente O(log n)
+- **Retriever**: Busca semântica por similaridade de cosseno
+- **Generator**: LLM (BentoML/vLLM ou fallback local) para síntese da resposta
+
+#### 🎨 **Fluxo de Execução:**
+```
+Query: "Quais ações são recomendadas para 2026?"
+
+1. Query → Embedding vector
+2. Busca nos 3 chunks mais similares no FAISS
+3. Concatenação: Query + Contexto relevante
+4. Geração: "Com base no contexto sobre renda fixa e juros altos..."
+```
+
 Para detalhes completos sobre o sistema de RAG implementado, consulte a documentação específica:  
 **[src/rag/README.md](src/rag/README.md)**
 

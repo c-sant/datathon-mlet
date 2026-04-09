@@ -2,6 +2,54 @@
 
 Este documento descreve o sistema de Retrieval-Augmented Generation (RAG) implementado no projeto `datathon-grupo-05`. O RAG combina recuperação de informações relevantes de uma base de conhecimento com geração de respostas usando modelos de linguagem grandes (LLMs), permitindo respostas contextuais e precisas baseadas em dados fornecidos.
 
+## O que é RAG?
+
+### 🎯 Conceito Teórico
+
+**Retrieval-Augmented Generation (RAG)** é uma arquitetura híbrida que integra **recuperação de informação** com **geração de texto**, superando limitações dos LLMs tradicionais através de acesso a conhecimento externo atualizado.
+
+#### Problema dos LLMs Tradicionais:
+- **Conhecimento estático**: Treinados em dados até uma data específica
+- **Alucinações**: Podem gerar informações incorretas ou desatualizadas
+- **Falta de transparência**: Difícil rastrear fonte das informações
+
+#### Solução RAG:
+- **Conhecimento dinâmico**: Base de dados externa consultada em tempo real
+- **Respostas fundamentadas**: Baseadas em contexto recuperado verificável
+- **Transparência**: Possibilita citar fontes e justificar respostas
+
+### ⚙️ Arquitetura Técnica
+
+```
+Query → Embedding → Retrieval → Re-ranking → Generation → Response
+```
+
+#### Componentes Técnicos:
+- **Embedder**: Transforma texto em vetores densos (SentenceTransformers)
+- **Vector Store**: Índice de busca eficiente (FAISS - L2 distance)
+- **Retriever**: Busca semântica por similaridade vetorial
+- **Re-ranker**: Reordenação opcional dos resultados (não implementado)
+- **Generator**: LLM condicionado no contexto recuperado
+
+#### Fluxo de Dados:
+1. **Indexação**: Documentos → Chunks → Embeddings → FAISS
+2. **Query**: Texto → Embedding → Top-K similares → Contexto
+3. **Geração**: Query + Contexto → LLM → Resposta final
+
+#### Métricas de Qualidade:
+- **Relevância**: Precisão na recuperação de chunks pertinentes
+- **Coerência**: Qualidade da resposta gerada
+- **Fidelidade**: Aderência ao contexto fornecido
+- **Latência**: Tempo de resposta end-to-end
+
+### 🎨 Vantagens Técnicas do RAG
+
+- **Atualização Contínua**: Base de conhecimento pode ser atualizada sem retreinar o modelo
+- **Explicabilidade**: Respostas podem ser rastreadas até fontes específicas
+- **Redução de Alucinações**: Contexto externo reduz geração de informações incorretas
+- **Escalabilidade**: Separação entre recuperação e geração permite otimização independente
+- **Custo-Efetividade**: Não requer fine-tuning completo do LLM para novos domínios
+
 ## Visão Geral
 
 O sistema RAG permite:

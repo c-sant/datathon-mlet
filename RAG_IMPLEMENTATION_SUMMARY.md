@@ -6,6 +6,45 @@ Sistema RAG (Retrieval-Augmented Generation) implementado e testado com sucesso.
 
 ---
 
+## 🤖 O que é RAG? (Retrieval-Augmented Generation)
+
+### 📖 Conceito Fundamental
+**RAG** é uma arquitetura de IA que combina **busca inteligente de informação** com **geração de texto**, permitindo que sistemas de IA respondam perguntas usando conhecimento externo atualizado, em vez de apenas dados pré-treinados.
+
+### 🎯 Por que RAG?
+- **Limitação dos LLMs**: Modelos como GPT têm conhecimento limitado até sua data de treinamento
+- **Solução RAG**: Consulta base de dados externa para fornecer contexto relevante e atualizado
+- **Resultado**: Respostas mais precisas, fundamentadas e menos propensas a "alucinações"
+
+### ⚙️ Como Funciona (Arquitetura Técnica)
+```
+Query do Usuário
+       ↓
+1. EMBEDDING: Converte query em vetor numérico
+2. RETRIEVAL: Busca documentos similares na base vetorial (FAISS)
+3. RANKING: Seleciona top-K trechos mais relevantes
+4. GENERATION: LLM cria resposta baseada no contexto recuperado
+       ↓
+Resposta Contextual e Fundamentada
+```
+
+### 🔍 Componentes Técnicos
+- **Embedder**: SentenceTransformers (converte texto → vetores)
+- **Vector Store**: FAISS (busca rápida em milhões de documentos)
+- **Retriever**: Algoritmo de similaridade semântica
+- **Generator**: LLM condicionado no contexto (BentoML/vLLM)
+
+### 💡 Exemplo Prático
+```
+Pergunta: "Quais ações são recomendadas para 2026?"
+
+1. Sistema busca em base de conhecimento financeiro
+2. Encontra: "Renda fixa oferece juros de 10%+ em 2026"
+3. Gera resposta: "Para 2026, considere renda fixa com juros acima de 10%..."
+```
+
+---
+
 ## 📋 Arquitetura do Sistema
 
 ```

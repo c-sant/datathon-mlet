@@ -2,6 +2,24 @@
 
 Este guia mostra como testar o sistema RAG localmente no Windows, com opções de teste rápido e completo.
 
+## 🤖 O que é RAG? (Breve Explicação)
+
+**RAG (Retrieval-Augmented Generation)** é um sistema de IA que combina:
+- **Busca Inteligente**: Encontra informações relevantes em uma base de dados
+- **Geração Contextual**: Cria respostas baseadas nas informações encontradas
+
+**Por que usar RAG?**
+- Respostas mais precisas e atualizadas
+- Baseadas em dados reais (não apenas conhecimento pré-treinado)
+- Menos "alucinações" (informações incorretas)
+
+**Como funciona aqui:**
+1. Você faz uma pergunta sobre investimentos
+2. Sistema busca em notícias financeiras relevantes
+3. Gera resposta contextual em português
+
+---
+
 ## Pré-requisitos
 - Python 3.10+
 - Git (opcional, para clonar o repo)
