@@ -139,3 +139,16 @@ def _generate_simulated_answer(query, context):
     
     # Resposta padrão mais inteligente
     return f"Baseado no contexto fornecido sobre '{context[:100]}...', recomendo uma abordagem equilibrada considerando os fatores mencionados. Consulte um assessor financeiro para decisões personalizadas."
+
+
+def generate_text(prompt, max_new_tokens=128, temperature=0.7):
+    """Gera texto bruto a partir de um prompt usando o gerador local."""
+    generator = _get_generator()
+    if generator is None:
+        return "Final Answer: Não foi possível carregar um modelo de geração local."
+
+    output = generator(prompt, max_new_tokens=max_new_tokens, temperature=temperature, do_sample=True)
+    generated_text = output[0]["generated_text"]
+    if generated_text.startswith(prompt):
+        return generated_text[len(prompt) :].strip()
+    return generated_text.strip()

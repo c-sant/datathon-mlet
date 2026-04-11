@@ -123,12 +123,12 @@ Para testar ingestão dinâmica e consultas via API:
 ### Iniciar API
 ```bash
 cd src
-uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
+uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 > Se estiver no root do projeto, execute:
 > ```bash
-> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload --app-dir src
 > ```
 
 ### Testar Ingestão
@@ -163,6 +163,33 @@ curl "http://localhost:8000/query?q=Quais%20ações%20são%20recomendadas?"
 }
 ```
 
+### Testar Agente ReAct
+```bash
+curl -X POST "http://localhost:8000/agent" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Quais notícias financeiras recentes são relevantes para investimentos em 2026?", "top_k": 3}'
+```
+
+**Resposta esperada:**
+```json
+{
+  "query": "Quais notícias financeiras recentes são relevantes para investimentos em 2026?",
+  "answer": "[Resposta do agente]",
+  "trace": [
+    {"step": 1, "thought": "...", "action": "search_documents", "observation": "..."},
+    {"step": 2, "thought": "...", "action": "summarize_context", "observation": "..."}
+  ]
+}
+```
+
+### Script RAG Pipeline
+```bash
+python src/agent/rag_pipeline.py offline --query "Quais ações são recomendadas para 2026?"
+python src/agent/rag_pipeline.py ingest --file docs.json --overwrite
+python src/agent/rag_pipeline.py api --host 0.0.0.0 --port 8000 --reload
+python src/agent/rag_pipeline.py agent --query "Quais notícias financeiras recentes são relevantes para investimentos em 2026?" --top-k 3
+```
+
 ### Teste via Navegador
 Se o servidor estiver rodando, abra `api_test.html` no navegador ou sirva a pasta do projeto com um servidor HTTP simples.
 
@@ -195,12 +222,12 @@ bentoml serve app:svc --port 3000
 Terminal 2:
 ```bash
 cd src
-uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
+uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 > Alternativa do root do projeto:
 > ```bash
-> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload --app-dir src
 > ```
 
 Agora as consultas usarão o modelo OPT-1.3B em vez do fallback local.

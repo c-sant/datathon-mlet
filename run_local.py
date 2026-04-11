@@ -8,12 +8,12 @@ for path in (src_path, project_root):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from rag.ingest import embedder, index, all_chunks, metadata
+from rag.embedding import embedder, index, all_chunks, metadata
 from rag.retriever import retrieve
 from rag.generator import generate_answer
 
 def run_local_test(query="Quais ações estão recomendadas para 2026?", top_k=3):
-    print("🔹 Query:", query)
+    print("Query:", query)
 
     # Passo 1: Busca chunks relevantes
     results = retrieve(query, embedder, index, all_chunks, metadata, top_k=top_k)

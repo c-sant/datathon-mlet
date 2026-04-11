@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from rag.ingest import ingest_documents, embedder, index, all_chunks, metadata
+from rag.embedding import ingest_documents, embedder, index, all_chunks, metadata
 from rag.retriever import retrieve
 from rag.generator import generate_answer
+from agent.react_agent import run_agent
 
 app = FastAPI()
 
@@ -54,3 +55,14 @@ def query_rag(q: str, top_k: int = 3):
     context = " ".join([r["text"] for r in results])
     answer = generate_answer(q, context)
     return {"query": q, "top_k": top_k, "context": context, "answer": answer}
+
+
+class AgentRequest(BaseModel):
+    query: str = Field(..., description="Consulta do usuário para o agente ReAct")
+    top_k: int = Field(3, description="Número de documentos a recuperar durante a busca")
+
+
+@app.post("/agent")
+def agent_rag(payload: AgentRequest):
+    result = run_agent(payload.query, top_k=payload.top_k)
+    return result

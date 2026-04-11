@@ -42,6 +42,16 @@
     <div id="queryResult" class="result"></div>
   </div>
 
+  <div class="section">
+    <h2>3. Agente ReAct</h2>
+    <label for="agentQueryText">Consulta do agente</label>
+    <input id="agentQueryText" type="text" value="Quais notícias financeiras recentes são relevantes para investimentos em 2026?" />
+    <label for="agentTopK">top_k</label>
+    <input id="agentTopK" type="number" value="3" min="1" max="10" />
+    <button id="agentBtn">Enviar /agent</button>
+    <div id="agentResult" class="result"></div>
+  </div>
+
   <script>
     const baseUrl = 'http://127.0.0.1:8000';
 
@@ -69,6 +79,22 @@
         document.getElementById('queryResult').textContent = `${resp.status} \n${JSON.stringify(json, null, 2)}`;
       } catch (error) {
         document.getElementById('queryResult').textContent = error;
+      }
+    });
+
+    document.getElementById('agentBtn').addEventListener('click', async () => {
+      const query = document.getElementById('agentQueryText').value;
+      const topK = Number(document.getElementById('agentTopK').value);
+      try {
+        const resp = await fetch(`${baseUrl}/agent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, top_k: topK }),
+        });
+        const json = await resp.json();
+        document.getElementById('agentResult').textContent = `${resp.status} \n${JSON.stringify(json, null, 2)}`;
+      } catch (error) {
+        document.getElementById('agentResult').textContent = error;
       }
     });
   </script>

@@ -82,7 +82,7 @@ O sistema RAG permite:
   - https://www.infomoney.com.br/mercados/
 - **Saída**: Lista de dicionários com `id`, `title`, `text`.
 
-### 2. `ingest.py`
+### 2. `embedding.py`
 - **Função**: Processa documentos, divide em chunks, gera embeddings e indexa no FAISS.
 - **Modelo de embeddings**: `all-MiniLM-L6-v2` (SentenceTransformers).
 - **Chunking**: Tamanho 300 palavras, overlap 50.
@@ -150,13 +150,21 @@ bentoml serve app:svc --port 3000
 ### 3. Executar API RAG
 ```bash
 cd src
-uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
+uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 > Se você estiver no root do projeto, também pode usar:
 > ```bash
-> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload --app-dir src
 > ```
+
+### 3.1 Usar o script de pipeline RAG
+```bash
+python src/agent/rag_pipeline.py offline --query "Quais ações são recomendadas para 2026?"
+python src/agent/rag_pipeline.py ingest --file docs.json --overwrite
+python src/agent/rag_pipeline.py api --host 0.0.0.0 --port 8000 --reload
+python src/agent/rag_pipeline.py agent --query "Quais notícias financeiras recentes são relevantes para investimentos em 2026?" --top-k 3
+```
 
 ### 4. Testar Localmente
 ```bash
@@ -203,9 +211,27 @@ Resposta:
 }
 ```
 
+### Agente ReAct
+```bash
+curl -X POST "http://localhost:8000/agent" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Quais notícias financeiras recentes são relevantes para investimentos em 2026?", "top_k": 3}'
+```
+
+Resposta:
+```json
+{
+  "query": "Quais notícias financeiras recentes são relevantes para investimentos em 2026?",
+  "answer": "[Resposta do agente]",
+  "trace": [
+    {"step": 1, "thought": "...", "action": "search_documents", "observation": "..."}
+  ]
+}
+```
+
 ## Monitoramento e Logs
 
-- **MLflow**: Runs automáticos em `ingest.py` (experimento "RAG_ingest").
+- **MLflow**: Runs automáticos em `embedding.py` (experimento "RAG_ingest").
 - **Métricas**: Número de documentos/chunks, modelo de embeddings, vector store.
 - **Artefatos**: Código fonte logado.
 

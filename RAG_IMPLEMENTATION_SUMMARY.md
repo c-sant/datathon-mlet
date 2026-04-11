@@ -81,12 +81,12 @@ Pergunta: "Quais ações são recomendadas para 2026?"
 
 ## 🔧 Componentes Implementados
 
-### 1. **API FastAPI** (`src/rag/api.py`)
+### 1. **API FastAPI** (`src/serving/app.py`)
 - `GET /query`: Consulta RAG com retrieval + generation
 - `POST /ingest`: Ingestão dinâmica de documentos do usuário
 - Validação de índice (503 se não disponível)
 
-### 2. **Ingestão Dinâmica** (`src/rag/ingest.py`)
+### 2. **Ingestão Dinâmica** (`src/rag/embedding.py`)
 - `chunk_text()`: Splitting com overlap
 - `build_index()`: Criação FAISS
 - `ingest_documents()`: API para dados customizados
@@ -135,12 +135,12 @@ python run_local.py
 ### Teste da API
 ```powershell
 cd src
-uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload
+uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 > Se estiver no root do projeto, use:
 > ```powershell
-> uvicorn rag.api:app --host 0.0.0.0 --port 8000 --reload --app-dir src
+> uvicorn serving.app:app --host 0.0.0.0 --port 8000 --reload --app-dir src
 > ```
 
 **Endpoints:**
