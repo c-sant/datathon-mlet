@@ -1,11 +1,17 @@
 services:
   vllm:
-    build:
-      context: .
-      dockerfile: Dockerfile.vllm
+    image: vllm/vllm-openai-cpu:latest-x86_64
     container_name: vllm
+    command: ["facebook/opt-125m", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8001:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request, sys; resp=urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=10); sys.exit(0 if resp.status == 200 else 1)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
 #  api:
 #    build:
 #      context: .
@@ -17,15 +23,16 @@ services:
 ##      - bentoml
 ##      - vllm
 
-#  bentoml:
-#    build:
-#      context: .
-#      dockerfile: Dockerfile.bento
-#    container_name: bentoml
-#    ports:
-#      - "3000:3000"
-#    depends_on:
-#      - vllm
+  bentoml:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.bento
+    container_name: bentoml
+    ports:
+      - "3000:3000"
+    depends_on:
+      vllm:
+        condition: service_healthy
 #
 #  mlflow:
 #    build:

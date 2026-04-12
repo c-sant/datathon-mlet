@@ -1,68 +1,68 @@
----
+﻿---
 
-## 🔹 Microsoft MLOps Maturity Model – Experiment Management
+## ðŸ”¹ Microsoft MLOps Maturity Model â€“ Experiment Management
 
-A dimensão *Experiment Management* avalia como os experimentos de machine learning são organizados, rastreados e comparados.  
-Nosso projeto já cobre de forma sólida os níveis 2 e 3.
+A dimensÃ£o *Experiment Management* avalia como os experimentos de machine learning sÃ£o organizados, rastreados e comparados.  
+Nosso projeto jÃ¡ cobre de forma sÃ³lida os nÃ­veis 2 e 3.
 
-| Nível | Descrição | O que temos implementado |
+| NÃ­vel | DescriÃ§Ã£o | O que temos implementado |
 |-------|-----------|---------------------------|
-| **Stage 1 – Inicial** | Experimentos ad hoc, sem rastreabilidade. | ❌ Não aplicável, já superado. |
-| **Stage 2 – Básico** | Registro manual de métricas e parâmetros, pouca padronização. | ✅ Runs separados por framework.<br>✅ Métricas (MAE, RMSE, MAPE) logadas.<br>✅ Parâmetros registrados (ticker, janela, epochs, batch_size, patience). |
-| **Stage 3 – Intermediário** | Uso de ferramenta de tracking (MLflow), runs padronizados, comparabilidade sistemática. | ✅ MLflow padronizado.<br>✅ Artefatos registrados (modelos, CSV, gráficos).<br>✅ Benchmark automatizado para comparação entre frameworks.<br>✅ Benchmark com ≥ 3 configurações documentadas (PyTorch, Sklearn, Keras). |
-| **Stage 4 – Avançado** | Automação de experimentos, versionamento de datasets, integração com pipelines CI/CD. | ⚠️ Ainda não implementado. Planejado para evolução futura. |
-| **Stage 5 – Otimizado** | Dashboards interativos, governança, auditoria e reprodutibilidade total. | ⚠️ Ainda não implementado. Planejado para evolução futura. |
+| **Stage 1 â€“ Inicial** | Experimentos ad hoc, sem rastreabilidade. | âŒ NÃ£o aplicÃ¡vel, jÃ¡ superado. |
+| **Stage 2 â€“ BÃ¡sico** | Registro manual de mÃ©tricas e parÃ¢metros, pouca padronizaÃ§Ã£o. | âœ… Runs separados por framework.<br>âœ… MÃ©tricas (MAE, RMSE, MAPE) logadas.<br>âœ… ParÃ¢metros registrados (ticker, janela, epochs, batch_size, patience). |
+| **Stage 3 â€“ IntermediÃ¡rio** | Uso de ferramenta de tracking (MLflow), runs padronizados, comparabilidade sistemÃ¡tica. | âœ… MLflow padronizado.<br>âœ… Artefatos registrados (modelos, CSV, grÃ¡ficos).<br>âœ… Benchmark automatizado para comparaÃ§Ã£o entre frameworks.<br>âœ… Benchmark com â‰¥ 3 configuraÃ§Ãµes documentadas (PyTorch, Sklearn, Keras). |
+| **Stage 4 â€“ AvanÃ§ado** | AutomaÃ§Ã£o de experimentos, versionamento de datasets, integraÃ§Ã£o com pipelines CI/CD. | âš ï¸ Ainda nÃ£o implementado. Planejado para evoluÃ§Ã£o futura. |
+| **Stage 5 â€“ Otimizado** | Dashboards interativos, governanÃ§a, auditoria e reprodutibilidade total. | âš ï¸ Ainda nÃ£o implementado. Planejado para evoluÃ§Ã£o futura. |
 
 ---
 
-📌 **Conclusão:**  
-Estamos **bem estruturados até os níveis 2 e 3**, garantindo rastreabilidade, reprodutibilidade e comparabilidade dos experimentos.
+ðŸ“Œ **ConclusÃ£o:**  
+Estamos **bem estruturados atÃ© os nÃ­veis 2 e 3**, garantindo rastreabilidade, reprodutibilidade e comparabilidade dos experimentos.
 
 ---
 
-## 🔹 Sistema RAG (Retrieval-Augmented Generation)
+## ðŸ”¹ Sistema RAG (Retrieval-Augmented Generation)
 
-### 📖 O que é RAG?
+### ðŸ“– O que Ã© RAG?
 
-**Retrieval-Augmented Generation (RAG)** é uma arquitetura de IA que combina **recuperação de informação** com **geração de texto**, permitindo que modelos de linguagem respondam com base em dados externos atualizados, em vez de apenas seu conhecimento pré-treinado.
+**Retrieval-Augmented Generation (RAG)** Ã© uma arquitetura de IA que combina **recuperaÃ§Ã£o de informaÃ§Ã£o** com **geraÃ§Ã£o de texto**, permitindo que modelos de linguagem respondam com base em dados externos atualizados, em vez de apenas seu conhecimento prÃ©-treinado.
 
-#### 🎯 **Conceito Teórico:**
-- **Limitação dos LLMs tradicionais**: Modelos como GPT são treinados em dados até uma data específica e podem "alucinar" informações desatualizadas ou incorretas
-- **Solução RAG**: Integra uma base de conhecimento externa que é consultada em tempo real para fornecer contexto relevante
-- **Vantagem**: Respostas mais precisas, atualizadas e fundamentadas em dados verificáveis
+#### ðŸŽ¯ **Conceito TeÃ³rico:**
+- **LimitaÃ§Ã£o dos LLMs tradicionais**: Modelos como GPT sÃ£o treinados em dados atÃ© uma data especÃ­fica e podem "alucinar" informaÃ§Ãµes desatualizadas ou incorretas
+- **SoluÃ§Ã£o RAG**: Integra uma base de conhecimento externa que Ã© consultada em tempo real para fornecer contexto relevante
+- **Vantagem**: Respostas mais precisas, atualizadas e fundamentadas em dados verificÃ¡veis
 
-#### ⚙️ **Arquitetura Técnica:**
+#### âš™ï¸ **Arquitetura TÃ©cnica:**
 ```
-1. 📥 INGESTÃO: Documentos → Chunking → Embeddings → Vetorização (FAISS)
-2. 🔍 RETRIEVAL: Query → Embedding → Busca semântica → Top-K chunks relevantes  
-3. 🤖 GENERATION: Query + Contexto → LLM → Resposta contextualizada
+1. ðŸ“¥ INGESTÃƒO: Documentos â†’ Chunking â†’ Embeddings â†’ VetorizaÃ§Ã£o (FAISS)
+2. ðŸ” RETRIEVAL: Query â†’ Embedding â†’ Busca semÃ¢ntica â†’ Top-K chunks relevantes  
+3. ðŸ¤– GENERATION: Query + Contexto â†’ LLM â†’ Resposta contextualizada
 ```
 
 **Componentes principais:**
-- **Embedder**: SentenceTransformers (all-MiniLM-L6-v2) para criar representações vetoriais
-- **Vector Store**: FAISS com índice L2 para busca eficiente O(log n)
-- **Retriever**: Busca semântica por similaridade de cosseno
-- **Generator**: LLM (BentoML/vLLM ou fallback local) para síntese da resposta
+- **Embedder**: SentenceTransformers (all-MiniLM-L6-v2) para criar representaÃ§Ãµes vetoriais
+- **Vector Store**: FAISS com Ã­ndice L2 para busca eficiente O(log n)
+- **Retriever**: Busca semÃ¢ntica por similaridade de cosseno
+- **Generator**: LLM (BentoML/vLLM ou fallback local) para sÃ­ntese da resposta
 
-#### 🎨 **Fluxo de Execução:**
+#### ðŸŽ¨ **Fluxo de ExecuÃ§Ã£o:**
 ```
-Query: "Quais ações são recomendadas para 2026?"
+Query: "Quais aÃ§Ãµes sÃ£o recomendadas para 2026?"
 
-1. Query → Embedding vector
+1. Query â†’ Embedding vector
 2. Busca nos 3 chunks mais similares no FAISS
-3. Concatenação: Query + Contexto relevante
-4. Geração: "Com base no contexto sobre renda fixa e juros altos..."
+3. ConcatenaÃ§Ã£o: Query + Contexto relevante
+4. GeraÃ§Ã£o: "Com base no contexto sobre renda fixa e juros altos..."
 ```
 
-Para detalhes completos sobre o sistema de RAG implementado, consulte a documentação específica:  
+Para detalhes completos sobre o sistema de RAG implementado, consulte a documentaÃ§Ã£o especÃ­fica:  
 **[src/rag/README.md](src/rag/README.md)**
 
-Para testar localmente, veja o guia rápido:  
+Para testar localmente, veja o guia rÃ¡pido:  
 **[TESTE_LOCAL.md](TESTE_LOCAL.md)**
 
-## Teste local rápido
+## Teste local rÃ¡pido
 
-Use o arquivo de dependências local para instalar o ambiente correto:
+Use o arquivo de dependÃªncias local para instalar o ambiente correto:
 
 ```powershell
 cd "C:\Users\cabri\Documents\Fiap\challenge5\datathon-grupo-05"
@@ -72,26 +72,26 @@ pip install --upgrade pip
 pip install -r requirements_local.txt -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
-### Opção 1: Teste Offline (Sem Download de Modelos) ⭐ RECOMENDADO
-Mais rápido e com respostas contextualmente corretas:
+### OpÃ§Ã£o 1: Teste Offline (Sem Download de Modelos) â­ RECOMENDADO
+Mais rÃ¡pido e com respostas contextualmente corretas:
 ```powershell
 python test_rag_offline.py
 ```
 
-### Opção 2: Teste Completo com Respostas Inteligentes em Português ⭐ NOVO PADRÃO
-Agora usa respostas simuladas inteligentes (sempre funciona, português perfeito):
+### OpÃ§Ã£o 2: Teste Completo com Respostas Inteligentes em PortuguÃªs â­ NOVO PADRÃƒO
+Agora usa respostas simuladas inteligentes (sempre funciona, portuguÃªs perfeito):
 ```powershell
 python run_local.py
 ```
 
-### Opção 3: Teste com Modelo Real (facebook/opt-1.3b)
-Para desenvolvimento avançado com modelo real:
+### OpÃ§Ã£o 3: Teste com Modelo Real (facebook/opt-1.3b)
+Para desenvolvimento avanÃ§ado com modelo real:
 ```powershell
 set RAG_MODEL=facebook/opt-1.3b
 python run_local.py
 ```
 
-### Opção 4: Teste com Modelo Rápido (distilgpt2)
+### OpÃ§Ã£o 4: Teste com Modelo RÃ¡pido (distilgpt2)
 Modelo leve, mas pode gerar texto estranho:
 ```powershell
 set RAG_MODEL=distilgpt2
@@ -101,15 +101,43 @@ python run_local.py
 Se `run_local.py` falhar com problema de rede, veja [TESTE_LOCAL.md](TESTE_LOCAL.md#erro-429-too-many-requests-do-hugging-face) para alternativas.
 
 > **Nota sobre modelos**: 
-> - `simulated` (padrão): Respostas perfeitas em português, sempre funciona
+> - `simulated` (padrÃ£o): Respostas perfeitas em portuguÃªs, sempre funciona
 > - `facebook/opt-1.3b`: Melhor qualidade geral
-> - `distilgpt2`: Rápido, mas gera texto estranho com prompts em PT
+> - `distilgpt2`: RÃ¡pido, mas gera texto estranho com prompts em PT
 > - `test_rag_offline.py`: Sempre funciona, respostas contextuais inteligentes
 
-Se o PowerShell bloquear a ativação do virtualenv, execute:
+Se o PowerShell bloquear a ativaÃ§Ã£o do virtualenv, execute:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-O RAG permite consultas contextuais baseadas em dados fornecidos, integrando ingestão dinâmica, busca vetorial (FAISS) e geração de respostas via LLM (BentoML/vLLM). 
+O RAG permite consultas contextuais baseadas em dados fornecidos, integrando ingestÃ£o dinÃ¢mica, busca vetorial (FAISS) e geraÃ§Ã£o de respostas via LLM (BentoML/vLLM).
+
+## Stack Docker
+
+### Caminho quantizado na nuvem (RunPod) âœ… VALIDADO
+
+O requisito `LLM servido via API com quantizacao aplicada` e atendido por este caminho:
+
+- `vLLM` com `--quantization awq` rodando em GPU NVIDIA no RunPod
+- `BentoML` local (porta `3004`) apontando para `VLLM_BASE_URL` remoto
+- Modelo: `Qwen/Qwen2.5-0.5B-Instruct-AWQ`
+- Compose dedicado: `docker/docker-compose.bento.remote.yml`
+
+Guia completo de setup e comandos validados: `CLOUD_RUNPOD_QUICKSTART.md`
+
+### Caminho suportado nesta maquina
+
+O stack CPU estavel continua sendo o caminho suportado para servir a API localmente:
+
+```powershell
+cd "C:\Users\cabri\Documents\Fiap\challenge5\datathon-grupo-05"
+docker compose -f docker/docker-compose.yml up -d
+```
+
+Estado verificado neste ambiente:
+- `vllm` saudavel em `http://localhost:8001`
+- `bentoml` ativo em `http://localhost:3000`
+
+Esse compose usa o modelo leve `facebook/opt-125m` e preserva o fluxo API BentoML + vLLM sem depender de instrucoes AVX512.
