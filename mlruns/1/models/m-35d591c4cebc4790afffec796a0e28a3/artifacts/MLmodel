@@ -1,0 +1,23 @@
+artifact_path: file:C:/Users/cabri/Documents/Fiap/challenge5/datathon-grupo-05/mlruns/1/models/m-35d591c4cebc4790afffec796a0e28a3/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.13.7
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.11.0+cpu
+mlflow_version: 3.9.0
+model_id: m-35d591c4cebc4790afffec796a0e28a3
+model_size_bytes: 38041
+model_uuid: m-35d591c4cebc4790afffec796a0e28a3
+prompts: null
+run_id: 69da026024e241da92666e4521142dfa
+utc_time_created: '2026-03-31 11:26:11.877627'

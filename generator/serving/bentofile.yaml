@@ -1,0 +1,18 @@
+service: "app:svc"
+labels:
+  owner: "grupo-05"
+  project: "acoes-rag"
+include:
+  - "*.py"
+  - "requirements.txt"
+python:
+  packages:
+    - bentoml
+    - vllm
+    - torch
+    - transformers
+    - sentence-transformers
+    - faiss-cpu
+    - mlflow
+    - newspaper3k
+    - requests

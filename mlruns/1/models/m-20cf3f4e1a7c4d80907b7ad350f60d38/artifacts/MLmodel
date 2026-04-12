@@ -1,0 +1,23 @@
+artifact_path: file:C:/Users/cabri/Documents/Fiap/challenge5/datathon-grupo-05/mlruns/1/models/m-20cf3f4e1a7c4d80907b7ad350f60d38/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.7
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.2
+    skops_trusted_types: null
+mlflow_version: 3.9.0
+model_id: m-20cf3f4e1a7c4d80907b7ad350f60d38
+model_size_bytes: 262089
+model_uuid: m-20cf3f4e1a7c4d80907b7ad350f60d38
+prompts: null
+run_id: 0ce5ce46d70b47cb88f9839a4b7dc735
+utc_time_created: '2026-03-30 20:07:30.241974'

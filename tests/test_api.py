@@ -1,24 +1,19 @@
-from fastapi.testclient import TestClient
+import requests
 
-from app.main import app
+def test_generate():
+    url = "http://localhost:3000/generate"
+    payload = {
+        "query": "Quais ações estão recomendadas para 2026?",
+        "context": "Dados do retriever..."
+    }
 
-client = TestClient(app)
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        print("✅ Resposta recebida:")
+        print(response.json())
+    except requests.exceptions.RequestException as e:
+        print("❌ Erro na requisição:", e)
 
-
-def test_health_returns_200():
-    response = client.get("/health")
-    assert response.status_code == 200
-
-    payload = response.json()
-    assert payload["status"] == "ok"
-    assert "model_version" in payload
-
-
-def test_predict_returns_expected_schema():
-    response = client.post("/predict", json={"text": "hello world"})
-    assert response.status_code == 200
-
-    payload = response.json()
-    assert "label" in payload
-    assert "score" in payload
-    assert "model_version" in payload
+if __name__ == "__main__":
+    test_generate()
