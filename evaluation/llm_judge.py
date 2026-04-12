@@ -271,6 +271,6 @@ if __name__ == "__main__":
         ground_truth="O preço de fechamento do PETR4 em 2024-01-15 foi de R$ 37,42.",
         contexts=["PETR4 registrou fechamento em R$ 37,42 no pregão de 15 de janeiro de 2024."],
     )
-    print(f"\nTeste individual:")
+    print("\nTeste individual:")
     print(f"  Overall: {result.overall_score}/5.0 | Passou: {result.passed()}")
     print(f"  Justificativa: {result.justification}")

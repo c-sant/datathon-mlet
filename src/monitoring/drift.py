@@ -302,11 +302,11 @@ if __name__ == "__main__":
         log_to_mlflow=False,
     )
 
-    print(f"\n=== Drift Detection — PETR4 ===")
+    print("\n=== Drift Detection — PETR4 ===")
     print(f"Status: {result.status.upper()}")
     print(f"Trigger retrain: {result.trigger_retrain}")
     print(f"Features com drift: {result.drifted_features}")
-    print(f"\nPSI por feature:")
+    print("\nPSI por feature:")
     for feat, psi in result.psi_scores.items():
         flag = " ⚠" if psi >= PSI_WARNING else ""
         print(f"  {feat:<25} PSI={psi:.4f}{flag}")
