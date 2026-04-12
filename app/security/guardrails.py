@@ -23,9 +23,7 @@ class InputGuardrail:
 
     def __init__(self, allowed_topics: list[str] | None = None):
         self.allowed_topics = allowed_topics or []
-        self._compiled_patterns = [
-            re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS
-        ]
+        self._compiled_patterns = [re.compile(p, re.IGNORECASE) for p in self.INJECTION_PATTERNS]
 
     def validate(self, user_input: str) -> tuple[bool, str]:
         """Valida input do usuário.
@@ -84,5 +82,5 @@ class OutputGuardrail:
             language=self.language,
             entities=["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "BR_CPF"],
         )
-        
+
         return results
