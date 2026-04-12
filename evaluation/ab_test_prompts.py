@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 AB_RESULTS_PATH = Path("data/golden_set/ab_test_results.json")
 
-# ── Variantes de prompt ────────────────────────────────────────────────────────
+#Variantes de prompt
 
 PROMPT_VARIANT_A = """Você é um assistente especializado em mercado financeiro brasileiro.
 Responda perguntas sobre ações, índices e dados da B3 (Bovespa) de forma direta e precisa.
