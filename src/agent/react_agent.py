@@ -38,7 +38,9 @@ def tool_search_documents(input_data: Any) -> str:
     elif isinstance(input_data, dict):
         payload = input_data
     else:
-        return "Formato de entrada inválido para search_documents. Use uma string ou um objeto JSON."
+        return (
+            "Formato de entrada inválido para search_documents. Use uma string ou um objeto JSON."
+        )
 
     query = str(payload.get("query", "")).strip()
     top_k = int(payload.get("top_k", 3))
@@ -73,7 +75,7 @@ def tool_summarize_context(input_data: Any) -> str:
     prompt = (
         "Resuma o seguinte contexto em português de forma objetiva e concisa:\n\n"
         f"{context}\n\n"
-        "Resumo:" 
+        "Resumo:"
     )
     raw = generate_text(prompt, max_new_tokens=128, temperature=0.5)
     return raw.strip()
@@ -84,7 +86,7 @@ TOOLS = [
         name="search_documents",
         description=(
             "Busca trechos relevantes na base de conhecimento usando RAG. "
-            "Entrada: JSON com {\"query\": string, \"top_k\": int opcional}."
+            'Entrada: JSON com {"query": string, "top_k": int opcional}.'
         ),
         func=tool_search_documents,
     ),
@@ -100,7 +102,7 @@ TOOLS = [
         name="summarize_context",
         description=(
             "Resume um texto em português de forma clara e objetiva. "
-            "Entrada: JSON com {\"context\": string}."
+            'Entrada: JSON com {"context": string}.'
         ),
         func=tool_summarize_context,
     ),
@@ -110,9 +112,7 @@ TOOL_MAP = {tool.name: tool for tool in TOOLS}
 
 
 def _format_tool_descriptions() -> str:
-    lines = [
-        f"{tool.name}: {tool.description}" for tool in TOOLS
-    ]
+    lines = [f"{tool.name}: {tool.description}" for tool in TOOLS]
     return "\n".join(lines)
 
 

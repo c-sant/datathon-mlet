@@ -16,6 +16,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mlflow.tracking import MlflowClient
 
+
 def gerar_benchmark(experiment_name="previsao_acoes"):
     client = MlflowClient()
 
@@ -28,7 +29,7 @@ def gerar_benchmark(experiment_name="previsao_acoes"):
     runs = client.search_runs(
         experiment_ids=[experiment.experiment_id],
         order_by=["attributes.start_time desc"],
-        max_results=50
+        max_results=50,
     )
 
     registros = []
@@ -49,17 +50,19 @@ def gerar_benchmark(experiment_name="previsao_acoes"):
 
         # Só adiciona se framework foi identificado
         if framework:
-            registros.append({
-                "Run_ID": run.info.run_id,
-                "Ticker": params.get("ticker", ""),
-                "Framework": framework,
-                "MAE": metrics.get(f"MAE_{framework.lower()}", None),
-                "RMSE": metrics.get(f"RMSE_{framework.lower()}", None),
-                "MAPE": metrics.get(f"MAPE_{framework.lower()}", None),
-                "Janela": params.get("janela", ""),
-                "Epochs": params.get("epochs", ""),
-                "Batch": params.get("batch_size", "")
-            })
+            registros.append(
+                {
+                    "Run_ID": run.info.run_id,
+                    "Ticker": params.get("ticker", ""),
+                    "Framework": framework,
+                    "MAE": metrics.get(f"MAE_{framework.lower()}", None),
+                    "RMSE": metrics.get(f"RMSE_{framework.lower()}", None),
+                    "MAPE": metrics.get(f"MAPE_{framework.lower()}", None),
+                    "Janela": params.get("janela", ""),
+                    "Epochs": params.get("epochs", ""),
+                    "Batch": params.get("batch_size", ""),
+                }
+            )
 
     # Cria DataFrame
     df = pd.DataFrame(registros)
@@ -69,10 +72,9 @@ def gerar_benchmark(experiment_name="previsao_acoes"):
 
     # Cria gráficos comparativos
     for metric in ["MAE", "RMSE", "MAPE"]:
-        plt.figure(figsize=(6,4))
+        plt.figure(figsize=(6, 4))
         df.groupby("Framework")[metric].mean().plot(
-            kind="bar",
-            color=["#1f77b4","#ff7f0e","#2ca02c"]
+            kind="bar", color=["#1f77b4", "#ff7f0e", "#2ca02c"]
         )
         plt.title(f"Comparação de {metric} por Framework")
         plt.ylabel(metric)
@@ -89,6 +91,7 @@ def gerar_benchmark(experiment_name="previsao_acoes"):
 
     print("✅ Benchmark gerado e logado como artifact no MLflow.")
     print(df)
+
 
 if __name__ == "__main__":
     gerar_benchmark()

@@ -10,6 +10,7 @@ VLLM_API_KEY = os.getenv("VLLM_API_KEY", "")
 
 svc = bentoml.Service("acoes_generator")
 
+
 @svc.api(input=JSON(), output=JSON())
 def generate(input_json):
     query = input_json.get("query")
@@ -22,11 +23,7 @@ def generate(input_json):
 
     resp = requests.post(
         f"{VLLM_BASE_URL}/v1/completions",
-        json={
-            "model": VLLM_MODEL,
-            "prompt": prompt,
-            "max_tokens": 200
-        },
+        json={"model": VLLM_MODEL, "prompt": prompt, "max_tokens": 200},
         headers=headers,
         timeout=30,
     )

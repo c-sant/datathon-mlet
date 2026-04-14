@@ -1,10 +1,11 @@
 import requests
 
+
 def test_generate():
     url = "http://localhost:3000/generate"
     payload = {
         "query": "Quais ações estão recomendadas para 2026?",
-        "context": "Dados do retriever..."
+        "context": "Dados do retriever...",
     }
 
     try:
@@ -14,6 +15,7 @@ def test_generate():
         print(response.json())
     except requests.exceptions.RequestException as e:
         print("❌ Erro na requisição:", e)
+
 
 if __name__ == "__main__":
     test_generate()

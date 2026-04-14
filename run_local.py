@@ -1,35 +1,38 @@
-import sys
 import os
+import sys
 
-# 🔹 Garante que a raiz do projeto está no PYTHONPATH
-project_root = os.path.dirname(os.path.abspath(__file__))
-src_path = os.path.join(project_root, "src")
-for path in (src_path, project_root):
-    if path not in sys.path:
-        sys.path.insert(0, path)
 
-from rag.embedding import embedder, index, all_chunks, metadata
-from rag.retriever import retrieve
-from rag.generator import generate_answer
+def _ensure_project_paths() -> None:
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    src_path = os.path.join(project_root, "src")
 
-def run_local_test(query="Quais ações estão recomendadas para 2026?", top_k=3):
+    for path in (src_path, project_root):
+        if path not in sys.path:
+            sys.path.insert(0, path)
+
+
+def run_local_test(query: str = "Quais ações estão recomendadas para 2026?", top_k: int = 3):
+    _ensure_project_paths()
+
+    from rag.embedding import all_chunks, embedder, index, metadata
+    from rag.generator import generate_answer
+    from rag.retriever import retrieve
+
     print("Query:", query)
 
-    # Passo 1: Busca chunks relevantes
     results = retrieve(query, embedder, index, all_chunks, metadata, top_k=top_k)
     print("\n--- Resultados do Retriever ---")
-    for r in results:
-        print(f"Rank {r['rank']} | Distância: {r['distance']}")
-        print(f"Doc: {r['metadata']['doc_id']} - {r['metadata'].get('title','')}")
-        print(f"Texto: {r['text']}\n")
+    for result in results:
+        print(f"Rank {result['rank']} | Distância: {result['distance']}")
+        print(f"Doc: {result['metadata']['doc_id']} - {result['metadata'].get('title', '')}")
+        print(f"Texto: {result['text']}\n")
 
-    # Passo 2: Concatena contexto
-    context = " ".join([r["text"] for r in results])
-
-    # Passo 3: Gera resposta final
+    context = " ".join([result["text"] for result in results])
     answer = generate_answer(query, context)
+
     print("\n--- Resposta Final ---")
     print(answer)
+
 
 if __name__ == "__main__":
     run_local_test()

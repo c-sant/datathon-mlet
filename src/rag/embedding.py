@@ -4,6 +4,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from rag.data_loader import load_news
 
+
 # 🔹 Função para dividir documentos em chunks
 def chunk_text(text, chunk_size=300, overlap=50):
     words = text.split()
@@ -15,6 +16,7 @@ def chunk_text(text, chunk_size=300, overlap=50):
         chunks.append(chunk)
         start += chunk_size - overlap
     return chunks
+
 
 # 🔹 Inicializa modelo de embeddings
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
@@ -36,11 +38,13 @@ def build_index(documents):
         chunks_for_doc = chunk_text(text)
         for i, chunk in enumerate(chunks_for_doc):
             chunks.append(chunk)
-            metadata_entries.append({
-                "doc_id": doc.get("id") or f"doc_{len(chunks) - 1}",
-                "chunk_id": i,
-                "title": doc.get("title", "")
-            })
+            metadata_entries.append(
+                {
+                    "doc_id": doc.get("id") or f"doc_{len(chunks) - 1}",
+                    "chunk_id": i,
+                    "title": doc.get("title", ""),
+                }
+            )
 
     if not chunks:
         raise ValueError("Nenhum texto válido foi informado para ingestão.")
@@ -70,11 +74,13 @@ def ingest_documents(documents, overwrite=True, log_run=True):
         text = (doc.get("text") or "").strip()
         if not text:
             continue
-        normalized_docs.append({
-            "id": doc.get("id") or f"doc_{i}",
-            "title": doc.get("title", ""),
-            "text": text,
-        })
+        normalized_docs.append(
+            {
+                "id": doc.get("id") or f"doc_{i}",
+                "title": doc.get("title", ""),
+                "text": text,
+            }
+        )
 
     if not normalized_docs:
         raise ValueError("Nenhum documento válido encontrado para ingestão.")
@@ -94,9 +100,7 @@ def ingest_documents(documents, overwrite=True, log_run=True):
             mlflow.log_param("num_chunks", len(all_chunks))
             mlflow.log_artifact(__file__)
 
-    print(
-        "Ingestão concluída. Documentos coletados, chunkados e embeddings armazenados no FAISS."
-    )
+    print("Ingestão concluída. Documentos coletados, chunkados e embeddings armazenados no FAISS.")
 
     return {
         "doc_count": len(docs),

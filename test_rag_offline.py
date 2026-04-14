@@ -5,14 +5,13 @@ Demonstra: Ingestão → Chunking → Embedding → Retrieval → Generation
 """
 
 import sys
-import os
 from pathlib import Path
+
+import faiss
+import numpy as np
 
 # Adiciona src ao path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-import numpy as np
-from rag.retriever import retrieve
 
 # 🔹 DADOS MOCKADOS (Para teste sem dependências externas)
 MOCK_CHUNKS = [
@@ -41,7 +40,6 @@ print("=" * 70)
 
 # Step 1: Criar índice FAISS mockado
 print("\n📦 Criando índice FAISS...")
-import faiss
 index = faiss.IndexFlatL2(384)
 index.add(MOCK_EMBEDDINGS)
 print(f"✅ Índice criado com {index.ntotal} documentos")

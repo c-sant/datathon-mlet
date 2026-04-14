@@ -3,8 +3,9 @@ from newspaper import Article
 DEFAULT_URLS = [
     "https://www.seudinheiro.com/mercados",
     "https://einvestidor.estadao.com.br/mercado",
-    "https://www.infomoney.com.br/mercados/"
+    "https://www.infomoney.com.br/mercados/",
 ]
+
 
 def load_news(urls=None):
     """
@@ -20,11 +21,7 @@ def load_news(urls=None):
             article = Article(url, language="pt")
             article.download()
             article.parse()
-            docs.append({
-                "id": f"news_{i}",
-                "title": article.title,
-                "text": article.text
-            })
+            docs.append({"id": f"news_{i}", "title": article.title, "text": article.text})
         except Exception as e:
             print(f"Erro ao processar {url}: {e}")
     return docs
