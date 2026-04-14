@@ -426,9 +426,21 @@ dvc metrics diff
 
 🐳 Docker
 
+# Execução via Docker
+Docker Desktop instalado
+Docker em execução
+(WSL integrado, caso esteja usando Linux via Windows)
+
 🔹 Build
 
+Geral:
 docker build -t datathon-mlet .
+
+Pipeline:
+docker compose build pipeline
+
+MLFLOW:
+docker compose build mlflow
 
 🔹 Executar pipeline
 

@@ -14,3 +14,7 @@ reports
 mlflow/artifacts
 
 *.db
+
+.pytest_cache
+.coverage
+htmlcov

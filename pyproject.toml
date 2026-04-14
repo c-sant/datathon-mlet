@@ -38,6 +38,12 @@ dev = [
   "pytest>=8.0"
 ]
 
+test = [
+  "pytest>=8.0",
+  "pytest-cov",
+  "httpx"
+]
+
 # -------------------------------
 # Packaging (src layout)
 # -------------------------------
@@ -79,6 +85,7 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
+pythonpath = ["."]
 
 # -------------------------------
 # Build system
