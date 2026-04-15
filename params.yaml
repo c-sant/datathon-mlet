@@ -1,13 +1,13 @@
 data:
   ticker: ITUB4.SA
   start: "2025-04-01"
-  end: "2026-04-30"
+  end: "2027-04-30"
   output: data/raw/stock_data.csv
 
 train:
   ticker: ITUB4.SA
   start: "2025-04-01"
-  end: "2026-04-30"
+  end: "2027-04-30"
   janela: 90
   epochs: 40
   batch: 32
@@ -16,7 +16,7 @@ train:
 baseline:
   ticker: ITUB4.SA
   start: "2025-04-01"
-  end: "2026-04-30"
+  end: "2027-04-30"
   modelo_pytorch: models/modelo_ITUB4.SA_pytorch.pth
   modelo_sklearn: models/modelo_ITUB4.SA_sklearn.joblib
   modelo_keras: models/modelo_ITUB4.SA.keras

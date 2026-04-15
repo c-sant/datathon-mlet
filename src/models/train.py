@@ -291,7 +291,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Treinar modelos para previsão de preços")
     parser.add_argument("--ticker", type=str, default="ITUB4.SA", help="Código do ativo")
     parser.add_argument("--start", type=str, default="2025-04-01", help="Data inicial")
-    parser.add_argument("--end", type=str, default="2026-04-30", help="Data final")
+    parser.add_argument("--end", type=str, default="2027-04-30", help="Data final")
     parser.add_argument("--janela", type=int, default=90, help="Tamanho da janela de dias")
     parser.add_argument("--epochs", type=int, default=40, help="Número de épocas")
     parser.add_argument("--batch", type=int, default=32, help="Tamanho do batch")
