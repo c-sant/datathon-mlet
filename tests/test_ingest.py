@@ -1,9 +1,9 @@
 """Testes do ingest."""
+
 from argparse import Namespace
-from pathlib import Path
 
 import pandas as pd
-import pytest
+from pytest import raises
 
 from data.ingest import main
 
@@ -43,5 +43,5 @@ def test_ingest_empty(monkeypatch, tmp_path):
         output=str(tmp_path / "data.csv"),
     )
 
-    with pytest.raises(ValueError):
+    with raises(ValueError):
         main(args)

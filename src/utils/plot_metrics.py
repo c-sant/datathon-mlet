@@ -1,7 +1,8 @@
 import json
 import os
-import pandas as pd
+
 import matplotlib.pyplot as plt
+import pandas as pd
 
 METRICS_PATH = "reports/metrics.json"
 OUTPUT_DIR = "reports"

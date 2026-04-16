@@ -1,8 +1,9 @@
 """Testes do train."""
-import numpy as np
-import pytest
 
-from src.models.train import preparar_series, avaliar_regressao
+import numpy as np
+from pytest import raises
+
+from src.models.train import avaliar_regressao, preparar_series
 
 
 def test_preparar_series():
@@ -17,7 +18,7 @@ def test_preparar_series():
 def test_preparar_series_erro():
     data = np.array([[10], [11]])
 
-    with pytest.raises(ValueError):
+    with raises(ValueError):
         preparar_series(data, janela_dias=5)
 
 

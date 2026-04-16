@@ -1,13 +1,14 @@
 """Testes do baseline."""
+
 import numpy as np
 import pytest
 from sklearn.preprocessing import MinMaxScaler
 
 from src.models.baseline import (
-    carregar_dados_csv,
     avaliar_modelo,
-    treinar_pytorch,
+    carregar_dados_csv,
     carregar_pytorch,
+    treinar_pytorch,
 )
 
 
