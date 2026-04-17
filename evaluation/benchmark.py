@@ -11,14 +11,25 @@ Funções:
 - Loga tudo como artifacts no MLflow
 """
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+TRACKING_URI = f"sqlite:///{(ROOT_DIR / 'mlflow' / 'mlflow.db').resolve().as_posix()}"
+FRAMEWORK_PREFIXES = {
+    "PyTorch": "pytorch",
+    "Sklearn": "sklearn",
+    "Keras": "keras",
+}
+
 
 def gerar_benchmark(experiment_name="previsao_acoes"):
-    client = MlflowClient()
+    mlflow.set_tracking_uri(TRACKING_URI)
+    client = MlflowClient(tracking_uri=TRACKING_URI)
 
     # Recupera o experimento
     experiment = client.get_experiment_by_name(experiment_name)
@@ -39,25 +50,26 @@ def gerar_benchmark(experiment_name="previsao_acoes"):
 
         # Detecta framework dinamicamente
         framework = None
-        if "MAE_pytorch" in metrics:
+        if "mae_pytorch" in metrics:
             framework = "PyTorch"
-        elif "MAE_sklearn" in metrics:
+        elif "mae_sklearn" in metrics:
             framework = "Sklearn"
-        elif "MAE_keras" in metrics:
+        elif "mae_keras" in metrics:
             framework = "Keras"
         elif "framework" in params:
             framework = params["framework"]
 
         # Só adiciona se framework foi identificado
         if framework:
+            metric_prefix = FRAMEWORK_PREFIXES.get(framework, framework.lower())
             registros.append(
                 {
                     "Run_ID": run.info.run_id,
                     "Ticker": params.get("ticker", ""),
                     "Framework": framework,
-                    "MAE": metrics.get(f"MAE_{framework.lower()}", None),
-                    "RMSE": metrics.get(f"RMSE_{framework.lower()}", None),
-                    "MAPE": metrics.get(f"MAPE_{framework.lower()}", None),
+                    "MAE": metrics.get(f"mae_{metric_prefix}"),
+                    "RMSE": metrics.get(f"rmse_{metric_prefix}"),
+                    "MAPE": metrics.get(f"mape_{metric_prefix}"),
                     "Janela": params.get("janela", ""),
                     "Epochs": params.get("epochs", ""),
                     "Batch": params.get("batch_size", ""),
@@ -66,6 +78,8 @@ def gerar_benchmark(experiment_name="previsao_acoes"):
 
     # Cria DataFrame
     df = pd.DataFrame(registros)
+    if df.empty:
+        raise RuntimeError("Nenhum run com métricas compatíveis foi encontrado para gerar o benchmark.")
 
     # Salva como CSV
     df.to_csv("benchmark.csv", index=False)

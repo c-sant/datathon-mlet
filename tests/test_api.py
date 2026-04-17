@@ -1,20 +1,26 @@
+import os
+
+import pytest
 import requests
 
 
 def test_generate():
-    url = "http://localhost:3000/generate"
+    base_url = os.getenv("GENERATOR_SERVICE_URL")
+    if not base_url:
+        pytest.skip("Teste de integração requer a variável GENERATOR_SERVICE_URL configurada.")
+
+    url = f"{base_url.rstrip('/')}/generate"
     payload = {
         "query": "Quais ações estão recomendadas para 2026?",
         "context": "Dados do retriever...",
     }
 
-    try:
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        print("✅ Resposta recebida:")
-        print(response.json())
-    except requests.exceptions.RequestException as e:
-        print("❌ Erro na requisição:", e)
+    response = requests.post(url, json=payload, timeout=10)
+    response.raise_for_status()
+
+    payload = response.json()
+    assert "answer" in payload
+    assert payload["answer"]
 
 
 if __name__ == "__main__":
