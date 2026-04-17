@@ -11,9 +11,9 @@ Funções:
 - Loga tudo como artifacts no MLflow
 """
 
+import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
-import matplotlib.pyplot as plt
 from mlflow.tracking import MlflowClient
 
 

@@ -55,7 +55,7 @@ distances, indices = index.search(query_embedding, k=3)
 retrieved_chunks = [MOCK_CHUNKS[i] for i in indices[0]]
 retrieved_metadata = [MOCK_METADATA[i] for i in indices[0]]
 
-for rank, (idx, dist) in enumerate(zip(indices[0], distances[0]), 1):
+for rank, (idx, dist) in enumerate(zip(indices[0], distances[0], strict=False), 1):
     meta = MOCK_METADATA[idx]
     print(f"Rank {rank} | Distância: {dist:.4f}")
     print(f"Doc: {meta['id']} - {meta['title']}")

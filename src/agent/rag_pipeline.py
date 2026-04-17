@@ -16,6 +16,7 @@ def _load_runtime_dependencies():
             sys.path.insert(0, str(path))
 
     import uvicorn
+
     from agent.react_agent import run_agent
     from rag.data_loader import load_news
     from rag.embedding import all_chunks, embedder, index, ingest_documents, metadata

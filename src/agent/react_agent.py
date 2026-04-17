@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from rag.data_loader import load_news
+from rag.embedding import all_chunks, embedder, index, ingest_documents, metadata
 from rag.generator import generate_answer, generate_text
-from rag.embedding import ingest_documents, embedder, index, all_chunks, metadata
 from rag.retriever import retrieve
 
 

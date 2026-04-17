@@ -1,6 +1,5 @@
-from mlflow.tracking import MlflowClient
-
 import mlflow
+from mlflow.tracking import MlflowClient
 
 MODEL_NAME = "PrevisaoAcoes"
 client = MlflowClient()

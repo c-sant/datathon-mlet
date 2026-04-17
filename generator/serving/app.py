@@ -1,8 +1,8 @@
 import os
 
 import bentoml
-from bentoml.io import JSON
 import requests
+from bentoml.io import JSON
 
 VLLM_BASE_URL = os.getenv("VLLM_BASE_URL", "http://vllm:8000")
 VLLM_MODEL = os.getenv("VLLM_MODEL", "facebook/opt-125m")

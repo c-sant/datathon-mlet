@@ -1,7 +1,8 @@
-import mlflow
 import faiss
+import mlflow
 import numpy as np
 from sentence_transformers import SentenceTransformer
+
 from rag.data_loader import load_news
 
 

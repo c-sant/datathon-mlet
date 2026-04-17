@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from rag.embedding import ingest_documents, embedder, index, all_chunks, metadata
-from rag.retriever import retrieve
-from rag.generator import generate_answer
+
 from agent.react_agent import run_agent
+from rag.embedding import all_chunks, embedder, index, ingest_documents, metadata
+from rag.generator import generate_answer
+from rag.retriever import retrieve
 
 app = FastAPI()
 
@@ -36,7 +37,7 @@ def ingest_rag(payload: IngestRequest):
             overwrite=payload.overwrite,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return {
         "status": "ok",
