@@ -1,0 +1,32 @@
+services:
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datathon-mlet
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: dvc repro
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datathon-mlflow-ui
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "5000:5000"
+    command: mlflow ui --host 0.0.0.0 --backend-store-uri sqlite:///mlflow/mlflow.db
+  
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: datathon-mlet-test
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: pytest
