@@ -287,6 +287,7 @@ def main(args):
         print(f"run_id={run.info.run_id}")
 
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Treinar modelos para previsão de preços")
     parser.add_argument("--ticker", type=str, default="ITUB4.SA", help="Código do ativo")

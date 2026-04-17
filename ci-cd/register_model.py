@@ -1,17 +1,28 @@
-from mlflow.tracking import MlflowClient
+from pathlib import Path
 
 import mlflow
+from mlflow.tracking import MlflowClient
 
 MODEL_NAME = "PrevisaoAcoes"
-client = MlflowClient()
+ROOT_DIR = Path(__file__).resolve().parents[1]
+TRACKING_URI = f"sqlite:///{(ROOT_DIR / 'mlflow' / 'mlflow.db').resolve().as_posix()}"
+
+mlflow.set_tracking_uri(TRACKING_URI)
+client = MlflowClient(tracking_uri=TRACKING_URI)
 
 # Recupera último run do experimento
 experiment = client.get_experiment_by_name("previsao_acoes")
+if experiment is None:
+    raise RuntimeError("Experimento 'previsao_acoes' não encontrado no tracking store configurado.")
+
 runs = client.search_runs(
     experiment_ids=[experiment.experiment_id],
     order_by=["attributes.start_time desc"],
     max_results=1,
 )
+
+if not runs:
+    raise RuntimeError("Nenhum run encontrado para o experimento 'previsao_acoes'.")
 
 last_run = runs[0]
 run_id = last_run.info.run_id
@@ -30,8 +41,8 @@ for framework in ["pytorch_model", "sklearn_model", "keras_model"]:
 
 # Recuperar métricas do último run
 metrics = last_run.data.metrics
-mae = metrics.get("MAE_pytorch", None)
-rmse = metrics.get("RMSE_pytorch", None)
+mae = metrics.get("mae_pytorch")
+rmse = metrics.get("rmse_pytorch")
 
 # Critério de promoção (exemplo: RMSE < 0.05)
 for framework, version in registered_versions.items():
