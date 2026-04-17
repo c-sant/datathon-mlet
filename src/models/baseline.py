@@ -100,10 +100,6 @@ def avaliar_modelo(y_real, y_pred, nome_modelo, scaler):
     }
 
 
-<<<<<<< HEAD
-
-=======
->>>>>>> fc26f41cdd96bb6ea1cc4e115e6c11e611640bce
 def main(args):
     ticker = args.ticker
     modelo_path = args.modelo
