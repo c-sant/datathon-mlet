@@ -79,7 +79,9 @@ def gerar_benchmark(experiment_name="previsao_acoes"):
     # Cria DataFrame
     df = pd.DataFrame(registros)
     if df.empty:
-        raise RuntimeError("Nenhum run com métricas compatíveis foi encontrado para gerar o benchmark.")
+        raise RuntimeError(
+            "Nenhum run com métricas compatíveis foi encontrado para gerar o benchmark."
+        )
 
     # Salva como CSV
     df.to_csv("benchmark.csv", index=False)
