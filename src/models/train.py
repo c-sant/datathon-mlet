@@ -130,29 +130,10 @@ def log_tags_padronizadas(model_type: str, framework: str):
     mlflow.set_tag("dataset_type", "time_series")
 
 
-
-def preparar_dados(ticker, start, end, janela):
-    df = yf.download(ticker, start=start, end=end)
-    df = df[["Close"]].dropna()
-
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    dados = scaler.fit_transform(df.values)
-
-    X, y = [], []
-    for i in range(janela, len(dados)):
-        X.append(dados[i - janela : i, 0])
-        y.append(dados[i, 0])
-    X, y = np.array(X), np.array(y)
-
-    split = int(len(X) * 0.8)
-    X_train, X_test = X[:split], X[split:]
-    y_train, y_test = y[:split], y[split:]
-
-    return X_train, X_test, y_train, y_test, scaler
-
-
 def main(args):
     ticker = args.ticker
+    start_date = args.start
+    end_date = args.end
     janela_dias = args.janela
     epocas = args.epochs
     batchsize = args.batch
