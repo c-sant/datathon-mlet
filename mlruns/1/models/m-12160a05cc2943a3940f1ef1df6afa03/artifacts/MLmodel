@@ -1,0 +1,22 @@
+artifact_path: file:C:/Users/cabri/Documents/Fiap/challenge5/datathon-grupo-05/mlruns/1/models/m-12160a05cc2943a3940f1ef1df6afa03/artifacts
+flavors:
+  python_function:
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.tensorflow
+    python_version: 3.13.7
+  tensorflow:
+    code: null
+    data: data
+    keras_version: 2.20.0
+    model_type: keras
+    save_format: tf
+mlflow_version: 3.9.0
+model_id: m-12160a05cc2943a3940f1ef1df6afa03
+model_size_bytes: 404480
+model_uuid: m-12160a05cc2943a3940f1ef1df6afa03
+prompts: null
+run_id: 7a0218ca21df42aba73b3fe0366c3d4e
+utc_time_created: '2026-03-31 11:26:22.836093'

@@ -1,0 +1,15 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Copia o requirements do BentoML e instala dependências
+COPY docker/requirements.bento.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.bento.txt
+
+# Copia o código do serviço BentoML
+COPY generator/serving /generator/serving
+
+EXPOSE 3000
+
+CMD ["bentoml", "serve", "/generator/serving"]

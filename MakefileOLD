@@ -8,6 +8,11 @@ format:
 
 lint:
 	ruff check .
+	ruff format --check .
+
+lint-fix:
+	ruff check . --fix
+	ruff format .
 
 test:
 	pytest

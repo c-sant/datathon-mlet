@@ -205,3 +205,29 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# mlflow
+mlflow/artifacts/
+mlflow/mlflow.db
+mlruns/
+*.db
+mlflow/mlruns/
+*.pth
+*.joblib
+
+# modelos
+models/
+
+# python
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+*.pyc
+
+# métricas
+reports/
+
+# dados
+data/raw/
+*.csv
+/models

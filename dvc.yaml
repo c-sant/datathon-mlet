@@ -1,0 +1,79 @@
+stages:
+  ingest:
+    cmd: >
+      python data/ingest.py
+      --ticker ${data.ticker}
+      --start ${data.start}
+      --end ${data.end}
+      --output ${data.output}
+    deps:
+      - data/ingest.py
+    outs:
+      - ${data.output}
+    params:
+      - data
+
+  train:
+    cmd: >
+      python src/models/train.py
+      --ticker ${train.ticker}
+      --start ${train.start}
+      --end ${train.end}
+      --janela ${train.janela}
+      --epochs ${train.epochs}
+      --batch ${train.batch}
+      --data-path ${train.data_path}
+      --keras
+    deps:
+      - src/models/train.py
+      - ${data.output}
+      - pyproject.toml
+    outs:
+      - ${baseline.modelo_pytorch}
+      - ${baseline.modelo_sklearn}
+      - ${baseline.modelo_keras}
+      - mlflow/mlflow.db
+    params:
+      - train
+      - baseline.modelo_pytorch
+      - baseline.modelo_sklearn
+      - baseline.modelo_keras
+      - data.output
+
+  baseline:
+    cmd: >
+      python src/models/baseline.py
+      --ticker ${baseline.ticker}
+      --start ${baseline.start}
+      --end ${baseline.end}
+      --janela ${train.janela}
+      --modelo-pytorch ${baseline.modelo_pytorch}
+      --modelo-sklearn ${baseline.modelo_sklearn}
+      --modelo ${baseline.modelo_keras}
+      --keras
+      --data-path ${baseline.data_path}
+    deps:
+      - src/models/baseline.py
+      - ${data.output}
+      - ${baseline.modelo_pytorch}
+      - ${baseline.modelo_sklearn}
+      - ${baseline.modelo_keras}
+      - pyproject.toml
+    outs:
+      - reports/metrics_comparison.csv
+    metrics:
+      - reports/metrics.json
+    params:
+      - baseline
+      - train.janela
+      - data.output
+
+  plots:
+    cmd: python src/utils/plot_metrics.py
+    deps:
+      - src/utils/plot_metrics.py
+      - reports/metrics.json
+    outs:
+      - reports/comparacao_modelos.png
+      - reports/ranking_mae.png
+      - reports/mape.png

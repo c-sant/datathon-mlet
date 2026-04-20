@@ -1,24 +1,27 @@
-from fastapi.testclient import TestClient
+import os
 
-from app.main import app
+import pytest
+import requests
 
-client = TestClient(app)
 
+def test_generate():
+    base_url = os.getenv("GENERATOR_SERVICE_URL")
+    if not base_url:
+        pytest.skip("Teste de integração requer a variável GENERATOR_SERVICE_URL configurada.")
 
-def test_health_returns_200():
-    response = client.get("/health")
-    assert response.status_code == 200
+    url = f"{base_url.rstrip('/')}/generate"
+    payload = {
+        "query": "Quais ações estão recomendadas para 2026?",
+        "context": "Dados do retriever...",
+    }
+
+    response = requests.post(url, json=payload, timeout=10)
+    response.raise_for_status()
 
     payload = response.json()
-    assert payload["status"] == "ok"
-    assert "model_version" in payload
+    assert "answer" in payload
+    assert payload["answer"]
 
 
-def test_predict_returns_expected_schema():
-    response = client.post("/predict", json={"text": "hello world"})
-    assert response.status_code == 200
-
-    payload = response.json()
-    assert "label" in payload
-    assert "score" in payload
-    assert "model_version" in payload
+if __name__ == "__main__":
+    test_generate()

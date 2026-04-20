@@ -1,0 +1,15 @@
+# Dependências comuns
+requests
+
+# BentoML (fixo para estabilidade)
+bentoml==1.4.0
+
+# FastAPI + Uvicorn (API)
+fastapi
+uvicorn
+
+# MLflow (tracking)
+mlflow
+
+# vLLM (modelo)
+vllm
