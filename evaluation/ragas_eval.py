@@ -13,6 +13,7 @@ import pandas as pd
 try:
     from datasets import Dataset
 except ImportError:
+
     class Dataset:  # type: ignore[override]
         @staticmethod
         def from_list(items):

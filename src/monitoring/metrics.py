@@ -27,13 +27,13 @@ try:
         start_http_server,
     )
 except ImportError:
+
     class _MetricValue:
         def __init__(self):
             self.value = 0.0
 
         def get(self):
             return self.value
-
 
     class _MetricChild:
         def __init__(self):
@@ -50,7 +50,6 @@ except ImportError:
 
         def observe(self, value: float):
             self._value.value = value
-
 
     class _BaseMetric:
         def __init__(self, *args, labelnames=None, **kwargs):
@@ -76,25 +75,21 @@ except ImportError:
         def observe(self, value: float):
             self._default_child.observe(value)
 
-
     class Counter(_BaseMetric):
         pass
-
 
     class Gauge(_BaseMetric):
         pass
 
-
     class Histogram(_BaseMetric):
         pass
-
 
     class Summary(_BaseMetric):
         pass
 
-
     def start_http_server(*args, **kwargs):
         return None
+
 
 logger = logging.getLogger(__name__)
 

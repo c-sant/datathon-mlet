@@ -23,20 +23,18 @@ try:
     from evidently.metrics import ColumnDriftMetric
     from evidently.report import Report
 except ImportError:
+
     class DataDriftPreset:  # type: ignore[override]
         def __init__(self, *args, **kwargs):
             pass
-
 
     class TargetDriftPreset:  # type: ignore[override]
         def __init__(self, *args, **kwargs):
             pass
 
-
     class ColumnDriftMetric:  # type: ignore[override]
         def __init__(self, *args, **kwargs):
             pass
-
 
     class Report:  # type: ignore[override]
         def __init__(self, *args, **kwargs):
@@ -52,6 +50,7 @@ except ImportError:
 
         def save_html(self, *args, **kwargs):
             raise self._error
+
 
 logger = logging.getLogger(__name__)
 
