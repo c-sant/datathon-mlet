@@ -17,9 +17,41 @@ from pathlib import Path
 
 import mlflow
 import pandas as pd
-from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
-from evidently.metrics import ColumnDriftMetric
-from evidently.report import Report
+
+try:
+    from evidently.metric_preset import DataDriftPreset, TargetDriftPreset
+    from evidently.metrics import ColumnDriftMetric
+    from evidently.report import Report
+except ImportError:
+    class DataDriftPreset:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            pass
+
+
+    class TargetDriftPreset:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            pass
+
+
+    class ColumnDriftMetric:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            pass
+
+
+    class Report:  # type: ignore[override]
+        def __init__(self, *args, **kwargs):
+            self._error = RuntimeError(
+                "Dependências opcionais de drift não instaladas. Instale evidently para executar a detecção de drift."
+            )
+
+        def run(self, *args, **kwargs):
+            raise self._error
+
+        def as_dict(self):
+            raise self._error
+
+        def save_html(self, *args, **kwargs):
+            raise self._error
 
 logger = logging.getLogger(__name__)
 

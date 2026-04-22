@@ -18,13 +18,83 @@ from contextlib import contextmanager
 from functools import wraps
 from typing import Callable, Optional
 
-from prometheus_client import (
-    Counter,
-    Gauge,
-    Histogram,
-    Summary,
-    start_http_server,
-)
+try:
+    from prometheus_client import (
+        Counter,
+        Gauge,
+        Histogram,
+        Summary,
+        start_http_server,
+    )
+except ImportError:
+    class _MetricValue:
+        def __init__(self):
+            self.value = 0.0
+
+        def get(self):
+            return self.value
+
+
+    class _MetricChild:
+        def __init__(self):
+            self._value = _MetricValue()
+
+        def inc(self, amount: float = 1.0):
+            self._value.value += amount
+
+        def dec(self, amount: float = 1.0):
+            self._value.value -= amount
+
+        def set(self, value: float):
+            self._value.value = value
+
+        def observe(self, value: float):
+            self._value.value = value
+
+
+    class _BaseMetric:
+        def __init__(self, *args, labelnames=None, **kwargs):
+            self._labelnames = tuple(labelnames or [])
+            self._children = {}
+            self._default_child = _MetricChild()
+
+        def labels(self, **labels):
+            key = tuple(labels.get(name) for name in self._labelnames)
+            if key not in self._children:
+                self._children[key] = _MetricChild()
+            return self._children[key]
+
+        def inc(self, amount: float = 1.0):
+            self._default_child.inc(amount)
+
+        def dec(self, amount: float = 1.0):
+            self._default_child.dec(amount)
+
+        def set(self, value: float):
+            self._default_child.set(value)
+
+        def observe(self, value: float):
+            self._default_child.observe(value)
+
+
+    class Counter(_BaseMetric):
+        pass
+
+
+    class Gauge(_BaseMetric):
+        pass
+
+
+    class Histogram(_BaseMetric):
+        pass
+
+
+    class Summary(_BaseMetric):
+        pass
+
+
+    def start_http_server(*args, **kwargs):
+        return None
 
 logger = logging.getLogger(__name__)
 

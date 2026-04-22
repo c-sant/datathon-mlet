@@ -9,19 +9,42 @@ from pathlib import Path
 from typing import Callable
 
 import pandas as pd
-from datasets import Dataset
-from ragas import evaluate
-from ragas.metrics import (
-    answer_relevancy,
-    context_precision,
-    context_recall,
-    faithfulness,
-)
+
+try:
+    from datasets import Dataset
+except ImportError:
+    class Dataset:  # type: ignore[override]
+        @staticmethod
+        def from_list(items):
+            return items
+
+
+try:
+    from ragas import evaluate
+    from ragas.metrics import (
+        answer_relevancy,
+        context_precision,
+        context_recall,
+        faithfulness,
+    )
+except ImportError:
+    evaluate = None
+    answer_relevancy = None
+    context_precision = None
+    context_recall = None
+    faithfulness = None
 
 logger = logging.getLogger(__name__)
 
 GOLDEN_SET_PATH = Path("data/golden_set/golden_set.json")
 RESULTS_PATH = Path("data/golden_set/ragas_results.json")
+
+
+def _ensure_ragas_runtime() -> None:
+    if evaluate is None:
+        raise RuntimeError(
+            "Dependências opcionais de RAGAS não instaladas. Instale datasets e ragas para executar a avaliação."
+        )
 
 
 def load_golden_set(path: Path = GOLDEN_SET_PATH) -> list[dict]:
@@ -70,6 +93,7 @@ def evaluate_rag_pipeline(
         - context_precision: proporção de contextos relevantes recuperados
         - context_recall: cobertura do contexto sobre a resposta esperada
     """
+    _ensure_ragas_runtime()
     golden_set = load_golden_set(golden_set_path)
 
     logger.info("Gerando respostas do pipeline RAG para %d queries...", len(golden_set))
