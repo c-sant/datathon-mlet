@@ -8,7 +8,9 @@
 """
 
 import json
+import sys
 import time
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -255,11 +257,9 @@ class TestLLMJudge:
         assert good.passed(threshold=3.5) is True
         assert bad.passed(threshold=3.5) is False
 
-    @patch("evaluation.llm_judge.anthropic")
-    def test_evaluate_parses_json_response(self, mock_anthropic):
+    def test_evaluate_parses_json_response(self):
         """evaluate_with_llm_judge deve parsear resposta JSON corretamente."""
         mock_client = MagicMock()
-        mock_anthropic.Anthropic.return_value = mock_client
         mock_client.messages.create.return_value.content = [
             MagicMock(
                 text=json.dumps(
@@ -276,13 +276,16 @@ class TestLLMJudge:
             )
         ]
 
+        fake_anthropic = SimpleNamespace(Anthropic=MagicMock(return_value=mock_client))
+
         from evaluation.llm_judge import evaluate_with_llm_judge
 
-        result = evaluate_with_llm_judge(
-            query="Qual o P/L do IBOV?",
-            answer="O P/L médio do IBOV é 8.5x.",
-            ground_truth="O P/L do Ibovespa é aproximadamente 8.5x.",
-        )
+        with patch.dict(sys.modules, {"anthropic": fake_anthropic}):
+            result = evaluate_with_llm_judge(
+                query="Qual o P/L do IBOV?",
+                answer="O P/L médio do IBOV é 8.5x.",
+                ground_truth="O P/L do Ibovespa é aproximadamente 8.5x.",
+            )
 
         assert result.overall_score == 4.5
         assert result.financial_accuracy == 5
