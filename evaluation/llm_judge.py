@@ -5,6 +5,7 @@ Critérios obrigatórios (≥ 3, incluindo critério de negócio):
   2. Relevância temática   — responde sobre o ativo/índice perguntado
   3. Critério de negócio   — adequação para decisão de investimento
 """
+
 import json
 import logging
 from dataclasses import dataclass
@@ -63,6 +64,7 @@ Responda APENAS com um JSON válido no seguinte formato:
 @dataclass
 class JudgeResult:
     """Resultado da avaliação do LLM-as-judge."""
+
     query: str
     answer: str
     ground_truth: str
@@ -105,7 +107,7 @@ def evaluate_with_llm_judge(
     context_str = ""
     if contexts:
         context_str = "\nContextos recuperados pelo RAG:\n" + "\n".join(
-            f"  [{i+1}] {ctx}" for i, ctx in enumerate(contexts)
+            f"  [{i + 1}] {ctx}" for i, ctx in enumerate(contexts)
         )
 
     user_message = f"""Avalie a seguinte resposta de um sistema RAG financeiro sobre dados da B3:
@@ -147,7 +149,9 @@ Avalie os 4 critérios e retorne APENAS o JSON."""
         status = "APROVADO" if result.passed() else "REPROVADO"
         logger.info(
             "Judge [%s] %.1f/5.0 — %s",
-            status, result.overall_score, query[:60],
+            status,
+            result.overall_score,
+            query[:60],
         )
         return result
 
@@ -238,8 +242,10 @@ def run_judge_on_golden_set(
 
     logger.info(
         "Judge concluído: %d/%d aprovados (%.1f%%) | Score médio: %.2f/5.0",
-        summary["n_passed"], summary["n_evaluated"],
-        summary["pass_rate"] * 100, summary["avg_overall_score"],
+        summary["n_passed"],
+        summary["n_evaluated"],
+        summary["pass_rate"] * 100,
+        summary["avg_overall_score"],
     )
 
     if save_results:

@@ -2,6 +2,7 @@
 Referência: Es et al. (2024) — RAGAS: Automated Evaluation of Retrieval
             Augmented Generation. https://arxiv.org/abs/2309.15217
 """
+
 import json
 import logging
 from pathlib import Path
@@ -43,9 +44,7 @@ def load_golden_set(path: Path = GOLDEN_SET_PATH) -> list[dict]:
         golden_set = json.load(f)
 
     if len(golden_set) < 20:
-        raise ValueError(
-            f"Golden set deve ter ≥ 20 pares. Encontrados: {len(golden_set)}"
-        )
+        raise ValueError(f"Golden set deve ter ≥ 20 pares. Encontrados: {len(golden_set)}")
 
     logger.info("Golden set carregado: %d pares", len(golden_set))
     return golden_set
@@ -79,21 +78,25 @@ def evaluate_rag_pipeline(
     for i, item in enumerate(golden_set):
         try:
             answer, contexts = rag_fn(item["query"])
-            results.append({
-                "question": item["query"],
-                "answer": answer,
-                "contexts": contexts,
-                "ground_truth": item["expected_answer"],
-            })
+            results.append(
+                {
+                    "question": item["query"],
+                    "answer": answer,
+                    "contexts": contexts,
+                    "ground_truth": item["expected_answer"],
+                }
+            )
             logger.debug("Query %d/%d processada: %s", i + 1, len(golden_set), item["query"][:60])
         except Exception as e:
             logger.error("Erro na query %d: %s — %s", i + 1, item["query"][:60], e)
-            results.append({
-                "question": item["query"],
-                "answer": "Erro ao processar query.",
-                "contexts": [],
-                "ground_truth": item["expected_answer"],
-            })
+            results.append(
+                {
+                    "question": item["query"],
+                    "answer": "Erro ao processar query.",
+                    "contexts": [],
+                    "ground_truth": item["expected_answer"],
+                }
+            )
 
     dataset = Dataset.from_list(results)
 
@@ -150,7 +153,11 @@ def _log_interpretation(metrics: dict[str, float]) -> None:
         status = "OK" if value >= threshold else "ABAIXO DO THRESHOLD"
         logger.info(
             "%s: %.4f (threshold: %.2f) [%s] — %s",
-            metric, value, threshold, status, description,
+            metric,
+            value,
+            threshold,
+            status,
+            description,
         )
 
 

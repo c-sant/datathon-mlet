@@ -11,6 +11,7 @@ Métricas de qualidade LLM (Langfuse):
   - Relevância por categoria de query
   - Score do LLM-as-judge
 """
+
 import logging
 import time
 from contextlib import contextmanager
@@ -116,7 +117,8 @@ GENERATION_LATENCY = Summary(
 DRIFT_STATUS_MAP = {"stable": 0, "warning": 1, "critical": 2}
 
 
-#Decoradores e Context Managers
+# Decoradores e Context Managers
+
 
 @contextmanager
 def track_request(ticker: str = "unknown", category: str = "general"):
@@ -142,7 +144,10 @@ def track_request(ticker: str = "unknown", category: str = "general"):
         ACTIVE_REQUESTS.dec()
         logger.debug(
             "Request rastreada: ticker=%s cat=%s status=%s lat=%.3fs",
-            ticker, category, status, duration,
+            ticker,
+            category,
+            status,
+            duration,
         )
 
 
@@ -154,16 +159,20 @@ def track_rag_fn(ticker: str = "unknown", category: str = "general"):
         def get_moving_average(query: str) -> tuple[str, list[str]]:
             ...
     """
+
     def decorator(fn: Callable) -> Callable:
         @wraps(fn)
         def wrapper(*args, **kwargs):
             with track_request(ticker=ticker, category=category):
                 return fn(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 # Langfuse Integration
+
 
 class FinancialRAGTracer:
     """Integração com Langfuse para telemetria de qualidade LLM.
@@ -181,6 +190,7 @@ class FinancialRAGTracer:
         """
         try:
             from langfuse import Langfuse
+
             self.langfuse = Langfuse(
                 public_key=public_key,
                 secret_key=secret_key,
@@ -285,6 +295,7 @@ class FinancialRAGTracer:
 
 # Helpers de Update de Métricas
 
+
 def update_ragas_metrics(ticker: str, scores: dict[str, float]) -> None:
     """Atualiza Gauges Prometheus com scores RAGAS mais recentes.
 
@@ -320,7 +331,8 @@ def update_drift_metrics(ticker: str, drift_result) -> None:
 
     logger.info(
         "Métricas de drift atualizadas para %s: status=%s",
-        ticker, drift_result.status,
+        ticker,
+        drift_result.status,
     )
 
 
@@ -373,12 +385,15 @@ if __name__ == "__main__":
         with track_request(ticker=ticker, category=category):
             time.sleep(random.uniform(0.1, 2.0))
 
-        update_ragas_metrics(ticker, {
-            "faithfulness": random.uniform(0.7, 0.95),
-            "answer_relevancy": random.uniform(0.75, 0.98),
-            "context_precision": random.uniform(0.65, 0.90),
-            "context_recall": random.uniform(0.60, 0.88),
-        })
+        update_ragas_metrics(
+            ticker,
+            {
+                "faithfulness": random.uniform(0.7, 0.95),
+                "answer_relevancy": random.uniform(0.75, 0.98),
+                "context_precision": random.uniform(0.65, 0.90),
+                "context_recall": random.uniform(0.60, 0.88),
+            },
+        )
 
         logger.info("Request %d simulada: %s / %s", i + 1, ticker, category)
 

@@ -8,6 +8,7 @@ Thresholds PSI:
   PSI ≥ 0.10  → warning (monitorar)
   PSI ≥ 0.20  → crítico (trigger de retrain)
 """
+
 import json
 import logging
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ PSI_CRITICAL = 0.20
 @dataclass
 class DriftResult:
     """Resultado da análise de drift."""
+
     timestamp: str
     dataset_drift_detected: bool
     share_drifted_columns: float
@@ -104,18 +106,21 @@ def run_drift_detection(
     logger.info("Executando drift detection para %s...", ticker)
     logger.info(
         "Referência: %d amostras | Atual: %d amostras",
-        len(reference_df), len(current_df),
+        len(reference_df),
+        len(current_df),
     )
 
     ref_features = compute_financial_features(reference_df)
     cur_features = compute_financial_features(current_df)
 
     # Relatório principal: DataDrift + TargetDrift
-    report = Report(metrics=[
-        DataDriftPreset(),
-        TargetDriftPreset(),
-        *[ColumnDriftMetric(column_name=col) for col in FINANCIAL_FEATURES],
-    ])
+    report = Report(
+        metrics=[
+            DataDriftPreset(),
+            TargetDriftPreset(),
+            *[ColumnDriftMetric(column_name=col) for col in FINANCIAL_FEATURES],
+        ]
+    )
     report.run(reference_data=ref_features, current_data=cur_features)
 
     result_dict = report.as_dict()
@@ -139,7 +144,8 @@ def run_drift_detection(
                 drifted_features.append(col)
                 logger.warning(
                     "Drift detectado em %s: PSI=%.4f (%s)",
-                    col, psi,
+                    col,
+                    psi,
                     "CRÍTICO" if psi >= PSI_CRITICAL else "WARNING",
                 )
 
@@ -168,13 +174,18 @@ def run_drift_detection(
 
     logger.info(
         "Drift status: %s | PSI máximo: %.4f | Features com drift: %d/%d",
-        status.upper(), max_psi, len(drifted_features), len(FINANCIAL_FEATURES),
+        status.upper(),
+        max_psi,
+        len(drifted_features),
+        len(FINANCIAL_FEATURES),
     )
 
     if trigger_retrain:
         logger.critical(
             "TRIGGER DE RETRAIN ATIVADO para %s! PSI=%.4f > %.2f",
-            ticker, max_psi, PSI_CRITICAL,
+            ticker,
+            max_psi,
+            PSI_CRITICAL,
         )
 
     if save_report:
@@ -223,15 +234,17 @@ def _append_drift_history(result: DriftResult, ticker: str) -> None:
         with open(DRIFT_LOG_PATH, encoding="utf-8") as f:
             history = json.load(f)
 
-    history.append({
-        "ticker": ticker,
-        "timestamp": result.timestamp,
-        "status": result.status,
-        "trigger_retrain": result.trigger_retrain,
-        "share_drifted_columns": result.share_drifted_columns,
-        "psi_scores": result.psi_scores,
-        "drifted_features": result.drifted_features,
-    })
+    history.append(
+        {
+            "ticker": ticker,
+            "timestamp": result.timestamp,
+            "status": result.status,
+            "trigger_retrain": result.trigger_retrain,
+            "share_drifted_columns": result.share_drifted_columns,
+            "psi_scores": result.psi_scores,
+            "drifted_features": result.drifted_features,
+        }
+    )
 
     with open(DRIFT_LOG_PATH, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
@@ -275,15 +288,17 @@ def create_synthetic_financial_data(
     ).astype(float)
 
     dates = pd.bdate_range(end=pd.Timestamp.today(), periods=n_samples)
-    return pd.DataFrame({
-        "date": dates,
-        "open": open_,
-        "high": high,
-        "low": low,
-        "close": close,
-        "volume": volume,
-        "ticker": ticker,
-    })
+    return pd.DataFrame(
+        {
+            "date": dates,
+            "open": open_,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+            "ticker": ticker,
+        }
+    )
 
 
 if __name__ == "__main__":

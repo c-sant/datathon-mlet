@@ -3,6 +3,7 @@
 Compara variantes de prompt em termos de qualidade de resposta,
 usando RAGAS e LLM-as-judge como métricas de avaliação.
 """
+
 import json
 import logging
 import statistics
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 AB_RESULTS_PATH = Path("data/golden_set/ab_test_results.json")
 
-#Variantes de prompt
+# Variantes de prompt
 
 PROMPT_VARIANT_A = """Você é um assistente especializado em mercado financeiro brasileiro.
 Responda perguntas sobre ações, índices e dados da B3 (Bovespa) de forma direta e precisa.
@@ -61,6 +62,7 @@ VARIANTS = {
 @dataclass
 class VariantResult:
     """Resultado de uma variante de prompt em uma query."""
+
     variant_name: str
     query: str
     answer: str
@@ -74,6 +76,7 @@ class VariantResult:
 @dataclass
 class ABTestReport:
     """Relatório completo do A/B test."""
+
     variants_tested: list[str]
     n_queries: int
     results_by_variant: dict[str, list[VariantResult]] = field(default_factory=dict)
@@ -113,6 +116,7 @@ def build_rag_fn_with_prompt(
     Returns:
         Função RAG que usa o prompt da variante.
     """
+
     def rag_with_prompt(query: str) -> tuple[str, list[str]]:
         _, contexts = base_rag_fn(query)
         context_str = "\n".join(contexts)
@@ -158,7 +162,9 @@ def run_ab_test(
 
     logger.info(
         "Iniciando A/B test: %d variantes × %d queries = %d avaliações",
-        len(variants), len(golden_set), len(variants) * len(golden_set),
+        len(variants),
+        len(golden_set),
+        len(variants) * len(golden_set),
     )
 
     report = ABTestReport(
@@ -183,21 +189,25 @@ def run_ab_test(
                 contexts=contexts,
             )
 
-            variant_results.append(VariantResult(
-                variant_name=variant_name,
-                query=item["query"],
-                answer=answer,
-                contexts=contexts,
-                latency_ms=latency_ms,
-                judge_score=judge.overall_score,
-            ))
+            variant_results.append(
+                VariantResult(
+                    variant_name=variant_name,
+                    query=item["query"],
+                    answer=answer,
+                    contexts=contexts,
+                    latency_ms=latency_ms,
+                    judge_score=judge.overall_score,
+                )
+            )
 
         report.results_by_variant[variant_name] = variant_results
         avg = statistics.mean(r.judge_score for r in variant_results if r.judge_score > 0)
         logger.info("Variante %s concluída | Score médio: %.2f/5.0", variant_name, avg)
 
     winner = report.winner()
-    logger.info("Variante vencedora: %s | Score: %.2f", winner, report.summary()[winner]["avg_judge_score"])
+    logger.info(
+        "Variante vencedora: %s | Score: %.2f", winner, report.summary()[winner]["avg_judge_score"]
+    )
 
     if save_results:
         AB_RESULTS_PATH.parent.mkdir(parents=True, exist_ok=True)
