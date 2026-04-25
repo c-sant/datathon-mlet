@@ -1,0 +1,184 @@
+[
+  {
+    "query": "Qual foi o preço de fechamento do PETR4 em 2024-01-15?",
+    "expected_answer": "O preço de fechamento do PETR4 em 2024-01-15 foi de R$ 37,42.",
+    "contexts": [
+      "PETR4 registrou fechamento em R$ 37,42 no pregão de 15 de janeiro de 2024, com volume financeiro de R$ 1,2 bilhão.",
+      "A Petrobras encerrou o dia com variação de +1,3% em relação ao fechamento anterior."
+    ],
+    "metadata": {"ticker": "PETR4", "category": "price_query", "difficulty": "easy"}
+  },
+  {
+    "query": "Qual foi a variação percentual do IBOV no mês de janeiro de 2024?",
+    "expected_answer": "O IBOV variou -4,79% em janeiro de 2024, encerrando o mês aos 126.155 pontos.",
+    "contexts": [
+      "O Ibovespa abriu janeiro de 2024 aos 132.464 pontos e fechou o mês aos 126.155 pontos.",
+      "A queda foi influenciada por incertezas sobre a política monetária americana e revisão de metas fiscais no Brasil."
+    ],
+    "metadata": {"ticker": "IBOV", "category": "performance", "difficulty": "medium"}
+  },
+  {
+    "query": "Qual ação do setor bancário teve maior valorização no primeiro trimestre de 2024?",
+    "expected_answer": "BBAS3 (Banco do Brasil) foi a ação bancária com maior valorização no 1T24, com alta de aproximadamente 12,5%.",
+    "contexts": [
+      "BBAS3 acumulou alta de 12,5% no primeiro trimestre de 2024.",
+      "ITUB4 variou +3,2% e BBDC4 recuou -1,8% no mesmo período.",
+      "O setor bancário foi impulsionado por resultados acima do esperado e dividend yield atrativo."
+    ],
+    "metadata": {"ticker": "BBAS3", "category": "comparison", "difficulty": "medium"}
+  },
+  {
+    "query": "Qual foi a média móvel de 20 dias do VALE3 na semana de 2024-03-18?",
+    "expected_answer": "A média móvel de 20 dias do VALE3 na semana de 18/03/2024 foi aproximadamente R$ 68,50.",
+    "contexts": [
+      "VALE3 oscilou entre R$ 65,20 e R$ 71,80 nas últimas 20 sessões até 18/03/2024.",
+      "A média móvel simples de 20 dias calculada para este período foi de R$ 68,50."
+    ],
+    "metadata": {"ticker": "VALE3", "category": "technical_indicator", "difficulty": "hard"}
+  },
+  {
+    "query": "Quantas ações compõem o índice IBOV atualmente?",
+    "expected_answer": "O Ibovespa é composto por aproximadamente 84 ações de empresas listadas na B3.",
+    "contexts": [
+      "A carteira teórica do Ibovespa é revisada quadrimestralmente pela B3.",
+      "Na carteira vigente em 2024, o índice contempla 84 ativos, representando as ações mais negociadas do mercado brasileiro."
+    ],
+    "metadata": {"ticker": "IBOV", "category": "factual", "difficulty": "easy"}
+  },
+  {
+    "query": "Qual foi o volume médio diário negociado de MGLU3 em fevereiro de 2024?",
+    "expected_answer": "O volume médio diário de MGLU3 em fevereiro de 2024 foi de aproximadamente R$ 280 milhões.",
+    "contexts": [
+      "Magazine Luiza (MGLU3) apresentou volume médio diário de R$ 280 milhões em fevereiro de 2024.",
+      "O ativo manteve alta liquidez apesar da volatilidade do varejo neste período."
+    ],
+    "metadata": {"ticker": "MGLU3", "category": "volume", "difficulty": "medium"}
+  },
+  {
+    "query": "O PETR4 pagou dividendos no primeiro semestre de 2024? Qual foi o valor?",
+    "expected_answer": "Sim, a Petrobras (PETR4) distribuiu dividendos no 1S24. Em maio de 2024, pagou R$ 0,89 por ação ordinária.",
+    "contexts": [
+      "Petrobras aprovou distribuição de proventos de R$ 0,89 por ação ordinária com pagamento em maio de 2024.",
+      "O dividend yield anualizado do PETR4 ficou em torno de 14% no período."
+    ],
+    "metadata": {"ticker": "PETR4", "category": "dividends", "difficulty": "medium"}
+  },
+  {
+    "query": "Qual foi a máxima histórica do IBOV?",
+    "expected_answer": "A máxima histórica do Ibovespa foi de 137.469 pontos, atingida em 2 de junho de 2021.",
+    "contexts": [
+      "O Ibovespa atingiu seu recorde histórico de 137.469 pontos em 02/06/2021.",
+      "O índice era impulsionado pela reabertura econômica pós-pandemia e ambiente de juros ainda baixos."
+    ],
+    "metadata": {"ticker": "IBOV", "category": "historical", "difficulty": "easy"}
+  },
+  {
+    "query": "Qual o peso do setor de commodities no IBOV em 2024?",
+    "expected_answer": "Em 2024, o setor de commodities (petróleo, mineração e agro) representava aproximadamente 35% do peso total do Ibovespa.",
+    "contexts": [
+      "Petrobras (PETR3+PETR4) e Vale (VALE3) juntas concentravam cerca de 25% do índice.",
+      "Com outros papéis de commodities, o setor chegava a 35% da composição do IBOV em 2024."
+    ],
+    "metadata": {"ticker": "IBOV", "category": "composition", "difficulty": "hard"}
+  },
+  {
+    "query": "Qual foi a diferença entre a máxima e mínima do VALE3 em março de 2024?",
+    "expected_answer": "Em março de 2024, o VALE3 registrou máxima de R$ 72,10 e mínima de R$ 63,50, uma amplitude de R$ 8,60.",
+    "contexts": [
+      "VALE3 oscilou entre R$ 63,50 (mínima) e R$ 72,10 (máxima) ao longo de março de 2024.",
+      "A volatilidade foi influenciada por variações no preço do minério de ferro na China."
+    ],
+    "metadata": {"ticker": "VALE3", "category": "range", "difficulty": "medium"}
+  },
+  {
+    "query": "Qual ação registrou maior queda em um único pregão em 2024?",
+    "expected_answer": "AZUL4 registrou uma das maiores quedas em pregão único em 2024, com baixa de -19,8% em um dia após revisão de perspectiva de dívida.",
+    "contexts": [
+      "AZUL4 despencou -19,8% em 14/03/2024 após a empresa divulgar alerta sobre sua situação financeira.",
+      "O ativo atingiu mínima de R$ 8,20 naquele pregão, com volume acima de 5x a média."
+    ],
+    "metadata": {"ticker": "AZUL4", "category": "extreme_event", "difficulty": "hard"}
+  },
+  {
+    "query": "Qual foi o retorno acumulado do CDI em 2024?",
+    "expected_answer": "O CDI acumulou aproximadamente 10,4% em 2024, acompanhando a taxa Selic que ficou entre 10,5% e 11,75% no ano.",
+    "contexts": [
+      "A taxa Selic foi reduzida ao longo de 2024, partindo de 11,75% e chegando a 10,5% em agosto.",
+      "O CDI acumulou retorno de aproximadamente 10,4% no ano, servindo como benchmark para renda fixa."
+    ],
+    "metadata": {"ticker": "CDI", "category": "benchmark", "difficulty": "medium"}
+  },
+  {
+    "query": "Quais foram as 3 ações com maior volume financeiro na B3 em janeiro de 2024?",
+    "expected_answer": "As 3 ações mais negociadas em janeiro de 2024 foram PETR4, VALE3 e ITUB4 em termos de volume financeiro.",
+    "contexts": [
+      "Em janeiro de 2024, PETR4 liderou com volume médio de R$ 2,1 bilhões/dia.",
+      "VALE3 e ITUB4 ocuparam o 2º e 3º lugar com R$ 1,4 bi e R$ 1,1 bi de volume médio respectivamente."
+    ],
+    "metadata": {"ticker": "MULTI", "category": "ranking", "difficulty": "medium"}
+  },
+  {
+    "query": "Qual foi a correlação entre PETR4 e o preço do petróleo Brent em 2024?",
+    "expected_answer": "PETR4 apresentou correlação positiva de aproximadamente 0,78 com o Brent em 2024, indicando forte dependência ao preço do petróleo.",
+    "contexts": [
+      "Análise de correlação entre PETR4 e Brent ao longo de 2024 apontou coeficiente de 0,78.",
+      "Movimentos do mercado de petróleo foram principal driver das cotações da Petrobras no período."
+    ],
+    "metadata": {"ticker": "PETR4", "category": "correlation", "difficulty": "hard"}
+  },
+  {
+    "query": "Qual foi a rentabilidade do IBOV comparado ao S&P500 em dólar no 1T24?",
+    "expected_answer": "No 1T24, o IBOV caiu -4,79% em reais, enquanto o S&P500 subiu +10,2% em dólares, mostrando underperformance expressiva do mercado brasileiro.",
+    "contexts": [
+      "O Ibovespa recuou 4,79% em reais no primeiro trimestre de 2024.",
+      "O S&P500 avançou 10,2% em dólares no mesmo período, movido por otimismo com IA e resultados corporativos."
+    ],
+    "metadata": {"ticker": "IBOV", "category": "comparison_international", "difficulty": "hard"}
+  },
+  {
+    "query": "Qual o setor com melhor desempenho na B3 em fevereiro de 2024?",
+    "expected_answer": "O setor de utilities (energia elétrica e saneamento) foi o destaque positivo em fevereiro de 2024, com alta média de 6,3%.",
+    "contexts": [
+      "Ações de energia elétrica como ELET3, ENEV3 e CPFE3 lideraram ganhos em fevereiro de 2024.",
+      "O setor de utilities avançou em média 6,3% no mês, beneficiado por queda nas taxas de juros longas."
+    ],
+    "metadata": {"ticker": "SECTOR", "category": "sector_performance", "difficulty": "medium"}
+  },
+  {
+    "query": "O que é o índice de liquidez de uma ação e como ele é calculado na B3?",
+    "expected_answer": "O índice de liquidez mede a negociabilidade de um ativo. Na B3, é calculado considerando frequência de presença em pregões, volume negociado e número de negócios em relação ao mercado.",
+    "contexts": [
+      "A B3 calcula o índice de liquidez de cada ativo com base em presença em pregões, volume e número de negócios.",
+      "Apenas ativos com índice de liquidez acima de 0,1% participam de índices como o IBOV."
+    ],
+    "metadata": {"ticker": "GENERIC", "category": "conceptual", "difficulty": "medium"}
+  },
+  {
+    "query": "Qual a diferença entre PETR3 e PETR4?",
+    "expected_answer": "PETR3 são ações ordinárias (ON) com direito a voto, e PETR4 são ações preferenciais (PN) sem direito a voto mas com prioridade no recebimento de dividendos.",
+    "contexts": [
+      "PETR3 corresponde às ações ordinárias da Petrobras, que conferem direito a voto nas assembleias.",
+      "PETR4 são ações preferenciais, sem voto, mas com prioridade no recebimento de dividendos e no reembolso do capital."
+    ],
+    "metadata": {"ticker": "PETR3/PETR4", "category": "conceptual", "difficulty": "easy"}
+  },
+  {
+    "query": "Qual foi o P/L médio das ações do IBOV em março de 2024?",
+    "expected_answer": "O Preço/Lucro médio das ações do Ibovespa em março de 2024 era de aproximadamente 8,5x, considerado baixo frente a mercados emergentes.",
+    "contexts": [
+      "O múltiplo P/L médio do Ibovespa ficou em torno de 8,5x em março de 2024.",
+      "Analistas apontavam o mercado brasileiro como subvalorizado frente a pares emergentes com P/L médio de 12x."
+    ],
+    "metadata": {"ticker": "IBOV", "category": "valuation", "difficulty": "hard"}
+  },
+  {
+    "query": "Qual foi o impacto da decisão do COPOM em março de 2024 sobre as ações?",
+    "expected_answer": "O COPOM reduziu a Selic em 0,5 p.p. em março de 2024, o que gerou reação mista: ações de crescimento subiram mas o IBOV teve leve queda pela comunicação hawkish do comunicado.",
+    "contexts": [
+      "O Comitê de Política Monetária (COPOM) reduziu a Selic de 11,25% para 10,75% em março de 2024.",
+      "Apesar do corte, o tom do comunicado foi mais conservador que o esperado, pressionando ativos de risco.",
+      "Ações de crescimento e small caps reagiram positivamente, enquanto o Ibovespa fechou levemente negativo."
+    ],
+    "metadata": {"ticker": "MACRO", "category": "macro_impact", "difficulty": "hard"}
+  }
+]
