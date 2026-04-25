@@ -1,6 +1,6 @@
 import pytest
 
-from app.security.guardrails import InputGuardrail, OutputGuardrail
+from security.guardrails import InputGuardrail, OutputGuardrail
 
 
 @pytest.mark.parametrize(
