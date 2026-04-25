@@ -1,0 +1,165 @@
+# Drift Detection 
+drift:
+  engine: evidently
+  metric: psi  # Population Stability Index
+
+  thresholds:
+    warning: 0.10   # PSI ≥ 0.10 → warning
+    critical: 0.20  # PSI ≥ 0.20 → trigger retrain
+
+  features_monitored:
+    - close_price
+    - volume
+    - daily_return
+    - volatility_20d
+    - moving_avg_20d
+    - high_low_range
+    - price_to_ma_ratio
+
+  tickers_monitored:
+    - PETR4
+    - VALE3
+    - ITUB4
+    - BBAS3
+    - IBOV
+
+  schedule:
+    cron: "0 18 * * 1-5"  # Dias úteis às 18h (após fechamento B3)
+    reference_window_days: 252   # 1 ano útil de referência
+    current_window_days: 21      # 1 mês para comparação
+
+  reports:
+    output_dir: data/drift_reports
+    format: html
+    history_file: data/drift_reports/drift_history.json
+
+  mlflow:
+    enabled: true
+    experiment_name: drift-monitoring-b3
+
+# RAGAS Quality Thresholds
+ragas:
+  thresholds:
+    faithfulness: 0.85       # Respostas devem ser baseadas nos dados recuperados
+    answer_relevancy: 0.80   # Respostas devem ser relevantes à pergunta
+    context_precision: 0.75  # Contextos recuperados devem ser precisos
+    context_recall: 0.75     # Contextos devem cobrir a resposta esperada
+
+  alerts:
+    # Alerta se qualquer métrica cair abaixo do threshold
+    on_degradation: true
+    degradation_tolerance: 0.05  # Tolera queda de até 5%
+
+  evaluation_schedule:
+    cron: "0 20 * * 1-5"  # Dias úteis às 20h
+    golden_set_path: data/golden_set/golden_set.json
+    min_samples: 20
+
+# LLM-as-judge Thresholds 
+llm_judge:
+  model: claude-sonnet-4-20250514
+  pass_threshold: 3.5   # Nota mínima para aprovação (escala 1-5)
+
+  criteria:
+    financial_accuracy:
+      threshold: 3.5
+      description: "Precisão de dados numéricos (preços, %, datas)"
+    topic_relevance:
+      threshold: 3.5
+      description: "Relevância da resposta para o ativo/índice perguntado"
+    investment_utility:
+      threshold: 3.0
+      description: "Utilidade para decisão de investimento (critério de negócio)"
+    clarity_completeness:
+      threshold: 3.5
+      description: "Clareza e completude da resposta"
+
+#Prometheus 
+prometheus:
+  port: 8001
+  scrape_interval: 15s
+  metrics_path: /metrics
+
+  alert_rules:
+    - name: HighLatency
+      expr: "histogram_quantile(0.95, rag_request_latency_seconds_bucket) > 10"
+      for: 5m
+      severity: warning
+      summary: "P95 de latência acima de 10s"
+
+    - name: HighErrorRate
+      expr: "rate(rag_error_total[5m]) / rate(rag_request_total[5m]) > 0.05"
+      for: 5m
+      severity: critical
+      summary: "Taxa de erros acima de 5%"
+
+    - name: LowThroughput
+      expr: "rate(rag_request_total[5m]) < 0.1"
+      for: 15m
+      severity: warning
+      summary: "Throughput abaixo de 0.1 req/s por 15 minutos"
+
+    - name: RAGASFaithfulnessDrop
+      expr: "ragas_faithfulness_score < 0.80"
+      for: 1h
+      severity: critical
+      summary: "Faithfulness RAGAS abaixo de 0.80 — possível alucinação"
+
+    - name: DriftCritical
+      expr: "drift_status > 1"
+      for: 0m
+      severity: critical
+      summary: "Drift crítico detectado — trigger de retrain necessário"
+
+# Grafana Dashboard
+grafana:
+  datasource: prometheus
+  refresh_interval: 30s
+
+  panels:
+    - title: "Latência P50/P95/P99"
+      type: graph
+      metric: rag_request_latency_seconds
+
+    - title: "Throughput (req/min)"
+      type: stat
+      metric: "rate(rag_request_total[1m]) * 60"
+
+    - title: "Taxa de Erros"
+      type: gauge
+      metric: "rate(rag_error_total[5m]) / rate(rag_request_total[5m])"
+
+    - title: "Métricas RAGAS (últimas 24h)"
+      type: table
+      metrics:
+        - ragas_faithfulness_score
+        - ragas_answer_relevancy_score
+        - ragas_context_precision_score
+        - ragas_context_recall_score
+
+    - title: "PSI de Drift por Feature"
+      type: heatmap
+      metric: drift_psi_score
+
+    - title: "Status de Drift por Ticker"
+      type: stat
+      metric: drift_status
+
+    - title: "Score LLM-as-judge"
+      type: gauge
+      metric: 'llm_judge_score{criterion="overall"}'
+
+#Langfuse
+langfuse:
+  enabled: true
+  host: https://cloud.langfuse.com
+  # Credenciais via variáveis de ambiente:
+  # LANGFUSE_PUBLIC_KEY
+  # LANGFUSE_SECRET_KEY
+
+  tags:
+    - datathon-fase05
+    - dominio-b3
+    - dev3-observabilidade
+
+  flush_interval_seconds: 30
