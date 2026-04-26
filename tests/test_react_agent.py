@@ -23,6 +23,25 @@ fake_faiss.IndexFlatL2 = _FakeIndexFlatL2
 sys.modules.setdefault("faiss", fake_faiss)
 
 
+class _FakeEmbedder:
+    def encode(self, values):
+        return [[0.0] for _ in values]
+
+
+def _fake_ingest_documents(documents, overwrite=True, log_run=True):
+    return {"doc_count": len(documents or []), "chunk_count": 0}
+
+
+fake_embedding = types.ModuleType("rag.embedding")
+fake_embedding.__spec__ = ModuleSpec("rag.embedding", loader=None)
+fake_embedding.all_chunks = []
+fake_embedding.embedder = _FakeEmbedder()
+fake_embedding.index = None
+fake_embedding.metadata = []
+fake_embedding.ingest_documents = _fake_ingest_documents
+sys.modules.setdefault("rag.embedding", fake_embedding)
+
+
 def _load_react_agent():
     return importlib.import_module("agent.react_agent")
 
