@@ -1,4 +1,7 @@
-from newspaper import Article
+try:
+    from newspaper import Article
+except ModuleNotFoundError:
+    Article = None
 
 DEFAULT_URLS = [
     "https://www.seudinheiro.com/mercados",
@@ -14,6 +17,10 @@ def load_news(urls=None):
     """
     if urls is None:
         urls = DEFAULT_URLS
+
+    if Article is None:
+        print("Biblioteca newspaper3k não está instalada; carregamento de notícias foi ignorado.")
+        return []
 
     docs = []
     for i, url in enumerate(urls):
