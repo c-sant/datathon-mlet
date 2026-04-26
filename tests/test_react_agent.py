@@ -1,3 +1,4 @@
+import importlib
 import sys
 import types
 from importlib.machinery import ModuleSpec
@@ -21,10 +22,14 @@ fake_faiss.__spec__ = ModuleSpec("faiss", loader=None)
 fake_faiss.IndexFlatL2 = _FakeIndexFlatL2
 sys.modules.setdefault("faiss", fake_faiss)
 
-import agent.react_agent as react_agent
+
+def _load_react_agent():
+    return importlib.import_module("agent.react_agent")
 
 
 def test_parse_agent_output_parses_json_action_input():
+    react_agent = _load_react_agent()
+
     raw = (
         "Thought: Vou buscar contexto\n"
         "Action: search_documents\n"
@@ -40,12 +45,16 @@ def test_parse_agent_output_parses_json_action_input():
 
 
 def test_execute_tool_returns_unknown_tool_message():
+    react_agent = _load_react_agent()
+
     result = react_agent._execute_tool("nao_existe", {})
 
     assert result == "Ferramenta desconhecida: nao_existe."
 
 
 def test_run_agent_returns_final_answer_directly(monkeypatch):
+    react_agent = _load_react_agent()
+
     monkeypatch.setattr(react_agent, "index", object())
     monkeypatch.setattr(react_agent, "all_chunks", ["chunk"])
 
@@ -62,6 +71,8 @@ def test_run_agent_returns_final_answer_directly(monkeypatch):
 
 
 def test_run_agent_executes_search_with_top_k(monkeypatch):
+    react_agent = _load_react_agent()
+
     monkeypatch.setattr(react_agent, "index", object())
     monkeypatch.setattr(react_agent, "all_chunks", ["chunk"])
 
@@ -97,6 +108,8 @@ def test_run_agent_executes_search_with_top_k(monkeypatch):
 
 
 def test_run_agent_fallbacks_to_generate_answer_on_error(monkeypatch):
+    react_agent = _load_react_agent()
+
     monkeypatch.setattr(react_agent, "index", object())
     monkeypatch.setattr(react_agent, "all_chunks", ["chunk"])
 
