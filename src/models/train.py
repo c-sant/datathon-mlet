@@ -21,8 +21,18 @@ from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.config_loader import load_config
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 MLFLOW_DIR = ROOT_DIR / "mlflow"
+
+_cfg = load_config()
+_cfg_data = _cfg["data"]
+_cfg_pytorch = _cfg["pytorch_mlp"]
+_cfg_sklearn = _cfg["sklearn_mlp"]
+_cfg_keras = _cfg["keras_lstm"]
 MLFLOW_DIR.mkdir(exist_ok=True)
 (MLFLOW_DIR / "artifacts").mkdir(exist_ok=True)
 
@@ -49,12 +59,12 @@ def treinar_pytorch(X_train: np.ndarray, y_train: np.ndarray, modelo_path: str) 
     model = MLP_PyTorch(input_dim)
 
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=_cfg_pytorch["optimizer"]["learning_rate"])
 
     X_train_t = torch.tensor(X_train, dtype=torch.float32)
     y_train_t = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
 
-    for _ in range(50):
+    for _ in range(_cfg_pytorch["epochs"]):
         optimizer.zero_grad()
         outputs = model(X_train_t)
         loss = criterion(outputs, y_train_t)
@@ -216,7 +226,11 @@ def main(args):
         )
 
         modelo_sklearn_path = os.path.join(models_dir, f"modelo_{ticker}_sklearn.joblib")
-        mlp = MLPRegressor(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
+        mlp = MLPRegressor(
+            hidden_layer_sizes=tuple(_cfg_sklearn["hidden_layer_sizes"]),
+            max_iter=_cfg_sklearn["max_iter"],
+            random_state=_cfg_sklearn["random_state"],
+        )
         mlp.fit(X_train, y_train)
         joblib.dump(mlp, modelo_sklearn_path)
 
@@ -290,14 +304,14 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Treinar modelos para previsão de preços")
-    parser.add_argument("--ticker", type=str, default="ITUB4.SA", help="Código do ativo")
-    parser.add_argument("--start", type=str, default="2025-04-01", help="Data inicial")
-    parser.add_argument("--end", type=str, default="2027-04-30", help="Data final")
-    parser.add_argument("--janela", type=int, default=90, help="Tamanho da janela de dias")
-    parser.add_argument("--epochs", type=int, default=40, help="Número de épocas")
-    parser.add_argument("--batch", type=int, default=32, help="Tamanho do batch")
-    parser.add_argument("--patience", type=int, default=4, help="Early stopping do Keras")
+    parser.add_argument("--ticker", type=str, default=_cfg_data["ticker"], help="Código do ativo")
+    parser.add_argument("--start", type=str, default=_cfg_data["start_date"], help="Data inicial")
+    parser.add_argument("--end", type=str, default=_cfg_data["end_date"], help="Data final")
+    parser.add_argument("--janela", type=int, default=_cfg_data["janela_dias"], help="Tamanho da janela de dias")
+    parser.add_argument("--epochs", type=int, default=_cfg_keras["epochs"], help="Número de épocas")
+    parser.add_argument("--batch", type=int, default=_cfg_keras["batch_size"], help="Tamanho do batch")
+    parser.add_argument("--patience", type=int, default=_cfg_keras["early_stopping"]["patience"], help="Early stopping do Keras")
     parser.add_argument("--keras", action="store_true", help="Treinar também modelo Keras")
-    parser.add_argument("--data-path", type=str, default="data/raw/stock_data.csv", help="Caminho do CSV de entrada")
+    parser.add_argument("--data-path", type=str, default=_cfg_data["data_path"], help="Caminho do CSV de entrada")
     args = parser.parse_args()
     main(args)
