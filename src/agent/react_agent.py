@@ -94,7 +94,9 @@ def _execute_tool(action: str, action_input: Any) -> str:
     return tool.func(action_input)
 
 
-def run_agent(query: str, top_k: int = _DEFAULT_TOP_K, max_steps: int = _DEFAULT_MAX_STEPS) -> dict[str, Any]:
+def run_agent(
+    query: str, top_k: int = _DEFAULT_TOP_K, max_steps: int = _DEFAULT_MAX_STEPS
+) -> dict[str, Any]:
     history = []
     observation = ""
 
@@ -104,7 +106,9 @@ def run_agent(query: str, top_k: int = _DEFAULT_TOP_K, max_steps: int = _DEFAULT
     for step in range(max_steps):
         prompt = _build_agent_prompt(query, history, observation)
         try:
-            raw_output = generate_text(prompt, max_new_tokens=_INFERENCE_MAX_NEW_TOKENS, temperature=_INFERENCE_TEMPERATURE)
+            raw_output = generate_text(
+                prompt, max_new_tokens=_INFERENCE_MAX_NEW_TOKENS, temperature=_INFERENCE_TEMPERATURE
+            )
         except Exception as exc:
             return {
                 "query": query,
