@@ -1,3 +1,26 @@
+import sys
+import types
+from importlib.machinery import ModuleSpec
+
+
+class _FakeIndexFlatL2:
+    def __init__(self, dim):
+        self.dim = dim
+        self._embeddings = None
+
+    def add(self, embeddings):
+        self._embeddings = embeddings
+
+    def search(self, query_embedding, top_k):
+        # Retorno mínimo para manter compatibilidade quando chamado em testes.
+        return [[0.0] * top_k], [[0] * top_k]
+
+
+fake_faiss = types.ModuleType("faiss")
+fake_faiss.__spec__ = ModuleSpec("faiss", loader=None)
+fake_faiss.IndexFlatL2 = _FakeIndexFlatL2
+sys.modules.setdefault("faiss", fake_faiss)
+
 import agent.react_agent as react_agent
 
 
