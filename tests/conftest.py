@@ -1,6 +1,16 @@
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / "src"
+
+for path in (str(ROOT_DIR), str(SRC_DIR)):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 
 @pytest.fixture
