@@ -3,9 +3,8 @@
 from argparse import Namespace
 
 import pandas as pd
-from pytest import raises
-
 from data.ingest import main
+from pytest import raises
 
 
 def test_ingest_success(monkeypatch, tmp_path, sample_stock_data):
