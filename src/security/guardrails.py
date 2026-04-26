@@ -13,7 +13,7 @@ class InputGuardrail:
 
     # Padrões comuns de prompt injection
     INJECTION_PATTERNS = [
-        r"ignore (previous|all|above) instructions",
+        r"ignore (all\s+)?(previous|above)?\s*instructions",
         r"forget (your|all|previous) (instructions|rules|constraints)",
         r"you are now",
         r"act as (if|though)",
