@@ -24,8 +24,9 @@ dependencies = [
 
   # Deep Learning
   "torch>=2.2",
-  "faiss-cpu>=1.13.2",
   "tensorflow>=2.15",
+  "faiss-cpu>=1.13.2",
+  "sentence-transformers>=5.4.1",
 
   # MLOps
   "mlflow>=2.12",
