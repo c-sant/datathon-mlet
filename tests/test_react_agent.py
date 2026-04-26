@@ -42,6 +42,23 @@ fake_embedding.ingest_documents = _fake_ingest_documents
 sys.modules.setdefault("rag.embedding", fake_embedding)
 
 
+fake_generator = types.ModuleType("rag.generator")
+fake_generator.__spec__ = ModuleSpec("rag.generator", loader=None)
+
+
+def _fake_generate_text(prompt, max_new_tokens=128, temperature=0.7):
+    return "Final Answer: stub"
+
+
+def _fake_generate_answer(query, context):
+    return "Resposta indisponível no stub"
+
+
+fake_generator.generate_text = _fake_generate_text
+fake_generator.generate_answer = _fake_generate_answer
+sys.modules.setdefault("rag.generator", fake_generator)
+
+
 def _load_react_agent():
     return importlib.import_module("agent.react_agent")
 
