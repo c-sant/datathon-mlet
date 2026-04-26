@@ -1,114 +1,17 @@
 import json
 import re
-from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
-from rag.data_loader import load_news
-from rag.embedding import all_chunks, embedder, index, ingest_documents, metadata
+from agent.tools import TOOL_MAP, TOOLS
+from rag.embedding import all_chunks, index
 from rag.generator import generate_answer, generate_text
-from rag.retriever import retrieve
+from utils.config_loader import load_config
 
-
-@dataclass
-class AgentTool:
-    name: str
-    description: str
-    func: Callable[[Any], str]
-
-
-def _format_search_results(results: list[dict]) -> str:
-    if not results:
-        return "Nenhum documento relevante foi encontrado."
-
-    lines = []
-    for item in results:
-        metadata = item.get("metadata", {})
-        lines.append(
-            f"Rank {item['rank']} | Distância: {item['distance']:.4f} | Doc: {metadata.get('doc_id', 'n/a')} - {metadata.get('title', '')}\n{item['text']}"
-        )
-    return "\n\n".join(lines)
-
-
-def tool_search_documents(input_data: Any) -> str:
-    if index is None or len(all_chunks) == 0:
-        return "O índice de busca não está disponível. Execute uma ingestão antes de usar esta ferramenta."
-
-    if isinstance(input_data, str):
-        payload = {"query": input_data, "top_k": 3}
-    elif isinstance(input_data, dict):
-        payload = input_data
-    else:
-        return (
-            "Formato de entrada inválido para search_documents. Use uma string ou um objeto JSON."
-        )
-
-    query = str(payload.get("query", "")).strip()
-    top_k = int(payload.get("top_k", 3))
-    if not query:
-        return "A ferramenta search_documents requer o campo query."
-
-    results = retrieve(query, embedder, index, all_chunks, metadata, top_k=top_k)
-    return _format_search_results(results)
-
-
-def tool_fetch_news(_: Any) -> str:
-    news_docs = load_news()
-    if not news_docs:
-        return "Não foi possível carregar notícias financeiras no momento."
-
-    stats = ingest_documents(news_docs, overwrite=False, log_run=False)
-    return (
-        f"Notícias carregadas e indexadas. Documents atuais: {stats['doc_count']}. "
-        f"Chunks atuais: {stats['chunk_count']}."
-    )
-
-
-def tool_summarize_context(input_data: Any) -> str:
-    if isinstance(input_data, dict):
-        context = str(input_data.get("context", "")).strip()
-    else:
-        context = str(input_data).strip()
-
-    if not context:
-        return "A ferramenta summarize_context requer um campo context com texto para resumir."
-
-    prompt = (
-        "Resuma o seguinte contexto em português de forma objetiva e concisa:\n\n"
-        f"{context}\n\n"
-        "Resumo:"
-    )
-    raw = generate_text(prompt, max_new_tokens=128, temperature=0.5)
-    return raw.strip()
-
-
-TOOLS = [
-    AgentTool(
-        name="search_documents",
-        description=(
-            "Busca trechos relevantes na base de conhecimento usando RAG. "
-            'Entrada: JSON com {"query": string, "top_k": int opcional}.'
-        ),
-        func=tool_search_documents,
-    ),
-    AgentTool(
-        name="fetch_news",
-        description=(
-            "Atualiza a base de conhecimento com notícias financeiras recentes das fontes padrão. "
-            "Não requer entrada adicional."
-        ),
-        func=tool_fetch_news,
-    ),
-    AgentTool(
-        name="summarize_context",
-        description=(
-            "Resume um texto em português de forma clara e objetiva. "
-            'Entrada: JSON com {"context": string}.'
-        ),
-        func=tool_summarize_context,
-    ),
-]
-
-TOOL_MAP = {tool.name: tool for tool in TOOLS}
+_cfg = load_config()["agent"]
+_INFERENCE_MAX_NEW_TOKENS: int = _cfg["inference"]["max_new_tokens"]
+_INFERENCE_TEMPERATURE: float = _cfg["inference"]["temperature"]
+_DEFAULT_MAX_STEPS: int = _cfg["max_steps"]
+_DEFAULT_TOP_K: int = _cfg["top_k"]
 
 
 def _format_tool_descriptions() -> str:
@@ -191,7 +94,7 @@ def _execute_tool(action: str, action_input: Any) -> str:
     return tool.func(action_input)
 
 
-def run_agent(query: str, top_k: int = 3, max_steps: int = 3) -> dict[str, Any]:
+def run_agent(query: str, top_k: int = _DEFAULT_TOP_K, max_steps: int = _DEFAULT_MAX_STEPS) -> dict[str, Any]:
     history = []
     observation = ""
 
@@ -201,7 +104,7 @@ def run_agent(query: str, top_k: int = 3, max_steps: int = 3) -> dict[str, Any]:
     for step in range(max_steps):
         prompt = _build_agent_prompt(query, history, observation)
         try:
-            raw_output = generate_text(prompt, max_new_tokens=256, temperature=0.5)
+            raw_output = generate_text(prompt, max_new_tokens=_INFERENCE_MAX_NEW_TOKENS, temperature=_INFERENCE_TEMPERATURE)
         except Exception as exc:
             return {
                 "query": query,
