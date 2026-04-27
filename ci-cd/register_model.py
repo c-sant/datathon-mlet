@@ -1,7 +1,8 @@
 from pathlib import Path
 
-import mlflow
 from mlflow.tracking import MlflowClient
+
+import mlflow
 
 MODEL_NAME = "PrevisaoAcoes"
 ROOT_DIR = Path(__file__).resolve().parents[1]

@@ -1,10 +1,10 @@
 import os
 
 import faiss
-import mlflow
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+import mlflow
 from rag.data_loader import load_news
 
 
