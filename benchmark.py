@@ -14,10 +14,9 @@ Funções:
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import mlflow
 import pandas as pd
 from mlflow.tracking import MlflowClient
-
-import mlflow
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 TRACKING_URI = f"sqlite:///{(ROOT_DIR / 'mlflow' / 'mlflow.db').resolve().as_posix()}"
