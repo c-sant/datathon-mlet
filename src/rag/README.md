@@ -141,6 +141,20 @@ source venv/bin/activate  # ou venv\Scripts\activate no Windows
 pip install -r requirements_local.txt -f https://download.pytorch.org/whl/torch_stable.html
 ```
 
+### 1.1 Configurar token do Hugging Face (quando necessario)
+
+Para modelos privados, limites de download ou execucao em container, configure um token read-only:
+
+```bash
+# Linux/macOS
+export HF_TOKEN=hf_xxxxxxxxxxxxxxxxx
+
+# Windows PowerShell
+$env:HF_TOKEN="hf_xxxxxxxxxxxxxxxxx"
+```
+
+O projeto tambem aceita `HUGGINGFACEHUB_API_TOKEN` como alias legado.
+
 ### 2. Iniciar Serviço Bento (Opcional, Recomendado)
 ```bash
 cd generator/serving

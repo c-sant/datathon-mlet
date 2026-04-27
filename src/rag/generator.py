@@ -15,10 +15,29 @@ BENTO_GENERATOR_URL = os.environ.get("RAG_GENERATOR_URL", "http://localhost:3000
 #   - distilgpt2 (rápido, mas gera texto estranho)
 #   - gpt2 (genérico)
 RAG_MODEL = os.environ.get("RAG_MODEL", "simulated")
+HF_TOKEN = (
+    os.environ.get("HF_TOKEN")
+    or os.environ.get("HUGGINGFACEHUB_API_TOKEN")
+    or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+)
 
 # 🔹 Lazy loading do modelo local como fallback.
 # O modelo é carregado apenas na primeira chamada de generate_answer().
 _generator = None
+
+
+def _build_text_generator(model_name):
+    """Cria pipeline local de texto com token HF opcional."""
+    kwargs = {"model": model_name}
+
+    if not HF_TOKEN:
+        return pipeline("text-generation", **kwargs)
+
+    try:
+        return pipeline("text-generation", token=HF_TOKEN, **kwargs)
+    except TypeError:
+        # Compatibilidade com versoes antigas do transformers.
+        return pipeline("text-generation", use_auth_token=HF_TOKEN, **kwargs)
 
 
 def _get_generator():
@@ -35,7 +54,7 @@ def _get_generator():
 
         # Tenta com a variável de ambiente RAG_MODEL
         try:
-            _generator = pipeline("text-generation", model=RAG_MODEL)
+            _generator = _build_text_generator(RAG_MODEL)
             return _generator
         except Exception as e:
             print(f"Falha ao carregar {RAG_MODEL}: {type(e).__name__}")
@@ -44,7 +63,7 @@ def _get_generator():
             if RAG_MODEL != "facebook/opt-1.3b":
                 try:
                     print("Tentando fallback: facebook/opt-1.3b...")
-                    _generator = pipeline("text-generation", model="facebook/opt-1.3b")
+                    _generator = _build_text_generator("facebook/opt-1.3b")
                     return _generator
                 except Exception as e2:
                     print(f"Falha ao carregar facebook/opt-1.3b: {type(e2).__name__}")
@@ -53,7 +72,7 @@ def _get_generator():
             if RAG_MODEL != "distilgpt2":
                 try:
                     print("Tentando fallback: distilgpt2...")
-                    _generator = pipeline("text-generation", model="distilgpt2")
+                    _generator = _build_text_generator("distilgpt2")
                     return _generator
                 except Exception as e3:
                     print(f"Falha ao carregar distilgpt2: {type(e3).__name__}")

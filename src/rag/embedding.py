@@ -1,3 +1,5 @@
+import os
+
 import faiss
 import mlflow
 import numpy as np
@@ -19,8 +21,27 @@ def chunk_text(text, chunk_size=300, overlap=50):
     return chunks
 
 
+HF_TOKEN = (
+    os.environ.get("HF_TOKEN")
+    or os.environ.get("HUGGINGFACEHUB_API_TOKEN")
+    or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+)
+
+
+def _init_embedder(model_name="all-MiniLM-L6-v2"):
+    """Inicializa o modelo de embeddings com token HF opcional."""
+    if not HF_TOKEN:
+        return SentenceTransformer(model_name)
+
+    try:
+        return SentenceTransformer(model_name, token=HF_TOKEN)
+    except TypeError:
+        # Compatibilidade com versoes antigas do sentence-transformers.
+        return SentenceTransformer(model_name, use_auth_token=HF_TOKEN)
+
+
 # 🔹 Inicializa modelo de embeddings
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+embedder = _init_embedder("all-MiniLM-L6-v2")
 
 docs = []
 all_chunks = []
