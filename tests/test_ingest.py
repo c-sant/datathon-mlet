@@ -1,24 +1,47 @@
 """Testes do ingest."""
 
+from argparse import Namespace
+
+import pandas as pd
 from pytest import raises
 
-from src.models.train import carregar_dados_csv
+from data.ingest import main
 
 
-def test_carregar_dados_csv_success(sample_stock_csv):
-    df = carregar_dados_csv(str(sample_stock_csv))
+def test_ingest_success(monkeypatch, tmp_path, sample_stock_data):
+    def fake_download(*args, **kwargs):
+        return sample_stock_data
 
-    assert not df.empty
+    monkeypatch.setattr("data.ingest.yf.download", fake_download)
+
+    output = tmp_path / "data.csv"
+
+    args = Namespace(
+        ticker="TEST",
+        start="2025-04-01",
+        end="2025-05-01",
+        output=str(output),
+    )
+
+    main(args)
+
+    assert output.exists()
+    df = pd.read_csv(output)
     assert "Close" in df.columns
 
 
-def test_carregar_dados_csv_sem_close(sample_stock_no_close):
+def test_ingest_empty(monkeypatch, tmp_path):
+    def fake_download(*args, **kwargs):
+        return pd.DataFrame()
+
+    monkeypatch.setattr("data.ingest.yf.download", fake_download)
+
+    args = Namespace(
+        ticker="TEST",
+        start="2025-04-01",
+        end="2025-05-01",
+        output=str(tmp_path / "data.csv"),
+    )
+
     with raises(ValueError):
-        carregar_dados_csv(str(sample_stock_no_close))
-
-
-def test_carregar_dados_csv_arquivo_inexistente(tmp_path):
-    inexistente = tmp_path / "arquivo_inexistente.csv"
-
-    with raises(FileNotFoundError):
-        carregar_dados_csv(str(inexistente))
+        main(args)

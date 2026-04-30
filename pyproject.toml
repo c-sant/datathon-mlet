@@ -3,7 +3,7 @@ name = "datathon-mlet"
 version = "0.1.0"
 description = "Pipeline reprodutível de previsão de ações com DVC, MLflow e Docker"
 readme = "README.md"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10"
 
 authors = [
   { name = "Claudio" }
@@ -19,36 +19,33 @@ dependencies = [
   "scikit-learn>=1.4",
   "joblib>=1.4",
 
+  # Feature Engineering (NOVO)
+  "statsmodels>=0.14",
+
   # Data
   "yfinance>=0.2.40",
 
   # Deep Learning
   "torch>=2.2",
   "tensorflow>=2.15",
-  "faiss-cpu>=1.13.2",
-  "sentence-transformers>=5.4.1",
 
   # MLOps
   "mlflow>=2.12",
-  "dvc>=3.50",
-  
-  # Security
-  "presidio-analyzer (>=2.2.362,<3.0.0)",
-  "presidio-anonymizer (>=2.2.362,<3.0.0)"
+  "dvc>=3.50"
 ]
 
 [project.optional-dependencies]
 dev = [
   "black>=24.0",
   "ruff>=0.5.0",
-  "pytest>=8.0",
-  "pytest-cov"
+  "pytest>=8.0"
 ]
 
 test = [
   "pytest>=8.0",
   "pytest-cov",
-  "httpx"
+  "httpx",
+  "pandera>=0.20"  # NOVO (schema validation)
 ]
 
 # -------------------------------
@@ -77,13 +74,13 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = [
-  "E",  # pycodestyle
-  "F",  # pyflakes
-  "I",  # import sorting
-  "B",  # bugbear
+  "E",
+  "F",
+  "I",
+  "B",
 ]
 ignore = [
-  "E501"  # linha longa (já tratado pelo black)
+  "E501"
 ]
 
 # -------------------------------
@@ -92,7 +89,7 @@ ignore = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v"
-pythonpath = [".", "src"]
+pythonpath = ["."]
 
 # -------------------------------
 # Build system

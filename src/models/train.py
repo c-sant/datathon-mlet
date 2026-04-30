@@ -18,23 +18,18 @@ from sklearn.neural_network import MLPRegressor
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras import Input, Sequential
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.layers import Dense, Dropout, LSTM
 
+from src.features import feature_engineering as fe
 
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from utils.config_loader import load_config
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 MLFLOW_DIR = ROOT_DIR / "mlflow"
-
-_cfg = load_config()
-_cfg_data = _cfg["data"]
-_cfg_pytorch = _cfg["pytorch_mlp"]
-_cfg_sklearn = _cfg["sklearn_mlp"]
-_cfg_keras = _cfg["keras_lstm"]
 MLFLOW_DIR.mkdir(exist_ok=True)
 (MLFLOW_DIR / "artifacts").mkdir(exist_ok=True)
+
+RAW_DATA_PATH = Path("data/raw/stock_data.csv")
+FEATURES_DATA_PATH = Path("data/raw/stock_features.csv")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -54,17 +49,156 @@ class MLP_PyTorch(nn.Module):
         return self.fc3(x)
 
 
+def ensure_features_dataset(data_path: str | None = None) -> str:
+    """
+    Garante que o arquivo data/raw/stock_features.csv exista.
+
+    Se o arquivo não existir, gera automaticamente usando feature_engineering.py.
+    """
+    if data_path:
+        return data_path
+
+    if not RAW_DATA_PATH.exists():
+        raise FileNotFoundError(
+            f"Arquivo bruto não encontrado: {RAW_DATA_PATH}. "
+            "Execute primeiro o ingest.py."
+        )
+
+    should_generate = not FEATURES_DATA_PATH.exists()
+
+    if FEATURES_DATA_PATH.exists():
+        raw_mtime = RAW_DATA_PATH.stat().st_mtime
+        features_mtime = FEATURES_DATA_PATH.stat().st_mtime
+        should_generate = raw_mtime > features_mtime
+
+    if should_generate:
+        logger.info("Gerando features automaticamente...")
+        features_df = fe.run_pipeline()
+        fe.save_features(features_df)
+        logger.info("Features geradas em %s", FEATURES_DATA_PATH)
+
+    return str(FEATURES_DATA_PATH)
+
+
+def get_feature_columns(dados: pd.DataFrame) -> list[str]:
+    """Seleciona automaticamente features tratadas."""
+    scaled_cols = [col for col in dados.columns if col.endswith("_scaled")]
+    pca_cols = [col for col in dados.columns if col.startswith("pca_")]
+
+    feature_cols = scaled_cols + pca_cols
+
+    if not feature_cols:
+        raise ValueError(
+            "Nenhuma feature tratada encontrada. "
+            "Execute: python src/features/feature_engineering.py"
+        )
+
+    return feature_cols
+
+
+def carregar_dados_csv(csv_path: str) -> pd.DataFrame:
+    logger.info("Lendo dados do CSV: %s", csv_path)
+
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"Arquivo CSV não encontrado: {csv_path}")
+
+    try:
+        dados = pd.read_csv(csv_path, header=[0, 1], index_col=0, parse_dates=True)
+        if isinstance(dados.columns, pd.MultiIndex):
+            dados.columns = dados.columns.get_level_values(0)
+    except Exception:
+        dados = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+
+    if "Close" not in dados.columns:
+        raise ValueError(
+            f"A coluna 'Close' não foi encontrada no CSV. "
+            f"Colunas encontradas: {list(dados.columns)}"
+        )
+
+    if "target_next_close" not in dados.columns:
+        raise ValueError(
+            "A coluna 'target_next_close' não foi encontrada. "
+            "Execute o feature_engineering.py antes do treino."
+        )
+
+    dados["Close"] = pd.to_numeric(dados["Close"], errors="coerce")
+    dados["target_next_close"] = pd.to_numeric(dados["target_next_close"], errors="coerce")
+    dados = dados.dropna(subset=["Close", "target_next_close"])
+
+    return dados
+
+
+def preparar_series(precos: np.ndarray, janela_dias: int):
+    """
+    Função legada mantida para compatibilidade com testes antigos.
+    Usa apenas uma série de preços.
+    """
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    precos_normalizados = scaler.fit_transform(precos)
+
+    X, y = [], []
+
+    for i in range(janela_dias, len(precos_normalizados)):
+        X.append(precos_normalizados[i - janela_dias:i, 0])
+        y.append(precos_normalizados[i, 0])
+
+    X = np.array(X)
+    y = np.array(y)
+
+    if len(X) == 0:
+        raise ValueError("Dados insuficientes para a janela escolhida.")
+
+    return X, y, scaler
+
+
+def preparar_series_features(
+    dados: pd.DataFrame,
+    janela_dias: int,
+    target_col: str = "target_next_close",
+):
+    """
+    Prepara série temporal multivariada com features tratadas.
+
+    Retorna:
+        X_3d: usado no Keras/LSTM
+        y: target escalado
+        scaler_y: scaler do target
+        feature_cols: features utilizadas
+    """
+    feature_cols = get_feature_columns(dados)
+
+    X_raw = dados[feature_cols].values
+    y_raw = dados[[target_col]].values
+
+    scaler_y = MinMaxScaler(feature_range=(0, 1))
+    y_scaled = scaler_y.fit_transform(y_raw)
+
+    X, y = [], []
+
+    for i in range(janela_dias, len(dados)):
+        X.append(X_raw[i - janela_dias:i])
+        y.append(y_scaled[i, 0])
+
+    X = np.array(X)
+    y = np.array(y)
+
+    if len(X) == 0:
+        raise ValueError("Dados insuficientes para a janela escolhida.")
+
+    return X, y, scaler_y, feature_cols
+
+
 def treinar_pytorch(X_train: np.ndarray, y_train: np.ndarray, modelo_path: str) -> nn.Module:
     input_dim = X_train.shape[1]
     model = MLP_PyTorch(input_dim)
 
     criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=_cfg_pytorch["optimizer"]["learning_rate"])
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     X_train_t = torch.tensor(X_train, dtype=torch.float32)
     y_train_t = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
 
-    for _ in range(_cfg_pytorch["epochs"]):
+    for _ in range(50):
         optimizer.zero_grad()
         outputs = model(X_train_t)
         loss = criterion(outputs, y_train_t)
@@ -73,6 +207,7 @@ def treinar_pytorch(X_train: np.ndarray, y_train: np.ndarray, modelo_path: str) 
 
     torch.save(model.state_dict(), modelo_path)
     logger.info("Modelo PyTorch salvo em %s", modelo_path)
+
     return model
 
 
@@ -91,44 +226,28 @@ def avaliar_regressao(y_true: np.ndarray, y_pred: np.ndarray, scaler: MinMaxScal
     }
 
 
-def carregar_dados_csv(csv_path: str) -> pd.DataFrame:
-    logger.info("Lendo dados do CSV: %s", csv_path)
+def criar_baseline_naive(
+    dados: pd.DataFrame,
+    janela_dias: int,
+    tamanho_treino: int,
+    scaler: MinMaxScaler,
+) -> np.ndarray:
+    """
+    Baseline naive para o conjunto de teste:
+    previsão do próximo fechamento = fechamento anterior.
+    """
+    close_values = dados["Close"].values
 
-    if not os.path.exists(csv_path):
-        raise FileNotFoundError(f"Arquivo CSV não encontrado: {csv_path}")
+    baseline_values = []
 
-    try:
-        dados = pd.read_csv(csv_path, header=[0, 1], index_col=0, parse_dates=True)
-        if isinstance(dados.columns, pd.MultiIndex):
-            dados.columns = dados.columns.get_level_values(0)
-    except Exception:
-        dados = pd.read_csv(csv_path, index_col=0, parse_dates=True)
+    inicio_teste = janela_dias + tamanho_treino
 
-    if "Close" not in dados.columns:
-        raise ValueError(f"A coluna 'Close' não foi encontrada no CSV. Colunas encontradas: {list(dados.columns)}")
+    for i in range(inicio_teste, len(dados)):
+        baseline_values.append(close_values[i - 1])
 
-    dados["Close"] = pd.to_numeric(dados["Close"], errors="coerce")
-    dados = dados.dropna(subset=["Close"])
+    baseline_values = np.array(baseline_values).reshape(-1, 1)
 
-    return dados
-
-
-def preparar_series(precos: np.ndarray, janela_dias: int):
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    precos_normalizados = scaler.fit_transform(precos)
-
-    X, y = [], []
-    for i in range(janela_dias, len(precos_normalizados)):
-        X.append(precos_normalizados[i - janela_dias:i, 0])
-        y.append(precos_normalizados[i, 0])
-
-    X = np.array(X)
-    y = np.array(y)
-
-    if len(X) == 0:
-        raise ValueError("Dados insuficientes para a janela escolhida.")
-
-    return X, y, scaler
+    return scaler.transform(baseline_values)
 
 
 def log_tags_padronizadas(model_type: str, framework: str):
@@ -160,17 +279,24 @@ def main(args):
     models_dir = os.path.join(root_dir, "models")
     os.makedirs(models_dir, exist_ok=True)
 
-    dados = carregar_dados_csv(args.data_path)
-    precos = dados[["Close"]].values
+    data_path = ensure_features_dataset(args.data_path)
+    dados = carregar_dados_csv(data_path)
 
-    X, y, scaler = preparar_series(precos, janela_dias)
-    X_keras = np.reshape(X, (X.shape[0], X.shape[1], 1))
+    X_3d, y, scaler, feature_cols = preparar_series_features(dados, janela_dias)
 
-    tamanho_treino = int(len(X) * 0.8)
-    X_train, X_test = X[:tamanho_treino], X[tamanho_treino:]
+    logger.info("Features utilizadas: %s", feature_cols)
+    logger.info("Shape X 3D: %s", X_3d.shape)
+
+    X_flat = X_3d.reshape(X_3d.shape[0], X_3d.shape[1] * X_3d.shape[2])
+    X_keras = X_3d
+
+    tamanho_treino = int(len(X_flat) * 0.8)
+
+    X_train, X_test = X_flat[:tamanho_treino], X_flat[tamanho_treino:]
     y_train, y_test = y[:tamanho_treino], y[tamanho_treino:]
 
-    X_train_keras, X_test_keras = X_keras[:tamanho_treino], X_keras[tamanho_treino:]
+    X_train_keras = X_keras[:tamanho_treino]
+    X_test_keras = X_keras[tamanho_treino:]
 
     tracking_uri = f"sqlite:///{MLFLOW_DIR / 'mlflow.db'}"
     mlflow.set_tracking_uri(tracking_uri)
@@ -183,15 +309,23 @@ def main(args):
         mlflow.log_param("janela", janela_dias)
         mlflow.log_param("epochs", epocas)
         mlflow.log_param("batch_size", batchsize)
-        mlflow.log_param("n_features", X_train.shape[1])
+        mlflow.log_param("n_features_original", len(feature_cols))
+        mlflow.log_param("n_features_model_input", X_train.shape[1])
+        mlflow.log_param("feature_columns", ",".join(feature_cols))
         mlflow.log_param("n_samples_train", X_train.shape[0])
         mlflow.log_param("n_samples_test", X_test.shape[0])
         mlflow.log_param("split_type", "temporal_80_20")
-        mlflow.log_param("data_source", args.data_path)
+        mlflow.log_param("data_source", data_path)
 
         log_tags_padronizadas(model_type="regression", framework="multiple")
 
-        y_pred_baseline = X_test[:, -1].reshape(-1, 1)
+        y_pred_baseline = criar_baseline_naive(
+            dados=dados,
+            janela_dias=janela_dias,
+            tamanho_treino=tamanho_treino,
+            scaler=scaler,
+        )
+
         metrics_baseline = avaliar_regressao(y_test, y_pred_baseline, scaler)
 
         mlflow.log_metric("mae_baseline", metrics_baseline["mae"])
@@ -213,6 +347,7 @@ def main(args):
             y_pred_torch = model_pytorch(torch.tensor(X_test, dtype=torch.float32)).numpy()
 
         metrics_torch = avaliar_regressao(y_test, y_pred_torch, scaler)
+
         mlflow.log_metric("mae_pytorch", metrics_torch["mae"])
         mlflow.log_metric("rmse_pytorch", metrics_torch["rmse"])
         mlflow.log_metric("mape_pytorch", metrics_torch["mape"])
@@ -226,12 +361,9 @@ def main(args):
         )
 
         modelo_sklearn_path = os.path.join(models_dir, f"modelo_{ticker}_sklearn.joblib")
-        mlp = MLPRegressor(
-            hidden_layer_sizes=tuple(_cfg_sklearn["hidden_layer_sizes"]),
-            max_iter=_cfg_sklearn["max_iter"],
-            random_state=_cfg_sklearn["random_state"],
-        )
+        mlp = MLPRegressor(hidden_layer_sizes=(64, 32), max_iter=500, random_state=42)
         mlp.fit(X_train, y_train)
+
         joblib.dump(mlp, modelo_sklearn_path)
 
         y_pred_sklearn = mlp.predict(X_test).reshape(-1, 1)
@@ -252,14 +384,16 @@ def main(args):
         if args.keras:
             logger.info("Treinando Keras...")
 
-            modelo = Sequential([
-                Input(shape=(X_train.shape[1], 1)),
-                LSTM(units=50, return_sequences=True),
-                Dropout(0.2),
-                LSTM(units=50, return_sequences=False),
-                Dropout(0.2),
-                Dense(units=1),
-            ])
+            modelo = Sequential(
+                [
+                    Input(shape=(X_train_keras.shape[1], X_train_keras.shape[2])),
+                    LSTM(units=50, return_sequences=True),
+                    Dropout(0.2),
+                    LSTM(units=50, return_sequences=False),
+                    Dropout(0.2),
+                    Dense(units=1),
+                ]
+            )
 
             modelo.compile(optimizer="adam", loss="mean_squared_error")
 
@@ -301,17 +435,24 @@ def main(args):
         print(f"run_id={run.info.run_id}")
 
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Treinar modelos para previsão de preços")
-    parser.add_argument("--ticker", type=str, default=_cfg_data["ticker"], help="Código do ativo")
-    parser.add_argument("--start", type=str, default=_cfg_data["start_date"], help="Data inicial")
-    parser.add_argument("--end", type=str, default=_cfg_data["end_date"], help="Data final")
-    parser.add_argument("--janela", type=int, default=_cfg_data["janela_dias"], help="Tamanho da janela de dias")
-    parser.add_argument("--epochs", type=int, default=_cfg_keras["epochs"], help="Número de épocas")
-    parser.add_argument("--batch", type=int, default=_cfg_keras["batch_size"], help="Tamanho do batch")
-    parser.add_argument("--patience", type=int, default=_cfg_keras["early_stopping"]["patience"], help="Early stopping do Keras")
+
+    parser.add_argument("--ticker", type=str, default="ITUB4.SA", help="Código do ativo")
+    parser.add_argument("--start", type=str, default="2025-04-01", help="Data inicial")
+    parser.add_argument("--end", type=str, default="2027-04-30", help="Data final")
+    parser.add_argument("--janela", type=int, default=90, help="Tamanho da janela de dias")
+    parser.add_argument("--epochs", type=int, default=40, help="Número de épocas")
+    parser.add_argument("--batch", type=int, default=32, help="Tamanho do batch")
+    parser.add_argument("--patience", type=int, default=4, help="Early stopping do Keras")
     parser.add_argument("--keras", action="store_true", help="Treinar também modelo Keras")
-    parser.add_argument("--data-path", type=str, default=_cfg_data["data_path"], help="Caminho do CSV de entrada")
+
+    parser.add_argument(
+        "--data-path",
+        type=str,
+        default=None,
+        help="Opcional. Se não informado, usa automaticamente data/raw/stock_features.csv",
+    )
+
     args = parser.parse_args()
     main(args)
