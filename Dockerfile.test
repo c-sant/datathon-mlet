@@ -4,7 +4,6 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -13,14 +12,23 @@ RUN apt-get update && apt-get install -y \
 
 RUN useradd -m appuser
 
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip setuptools wheel
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install tensorflow>=2.15
+
 COPY pyproject.toml .
 COPY README.md .
 COPY src/ src/
 COPY data/ data/
 COPY tests/ tests/
 
-RUN pip install --upgrade pip setuptools wheel \
-    && pip install ".[test]"
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cpu
 
 COPY . .
 
