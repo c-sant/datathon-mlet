@@ -25,6 +25,18 @@ services:
       --port 5000
       --backend-store-uri sqlite:///mlflow/mlflow.db
 
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datathon-mlet-api
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    command: uvicorn src.serving.app:app --host "0.0.0.0" --port 8000
+
   test:
     build:
       context: .
