@@ -1,348 +1,346 @@
-# System Card — Datathon MLET
+# System Card — Datathon MLET (Grupo 05)
 
-**Versão:** 0.1.0
-**Última atualização:** 2026-04-23
-**Status:** Protótipo acadêmico (datathon FIAP — MLET)
-**Repositório:** `datathon-mlet`
+Documento que descreve o **sistema completo** colocado em operação: o que faz, como funciona, em que contextos pode ser usado com responsabilidade e quais riscos foram avaliados. Inspirado em System Cards publicados por OpenAI e Anthropic e nas diretrizes do **NIST AI Risk Management Framework**.
 
-Este System Card descreve de forma estruturada as capacidades, limitações, riscos e controles do sistema. Segue o padrão de *system/model cards* adotado por Anthropic, OpenAI e Google, adaptado para o contexto de um sistema híbrido **RAG + previsão de séries temporais financeiras** com MLOps completo.
-
----
-
-## 1. Sumário executivo
-
-O sistema combina dois subsistemas integrados em um mesmo pipeline MLOps:
-
-1. **Subsistema de previsão de ações** — treina e avalia modelos (PyTorch, Scikit-learn, Keras e Ensemble) sobre séries históricas de preços (`yfinance`) para projetar `Close` futuro. Rastreado em MLflow; versionado via DVC.
-2. **Subsistema RAG (Retrieval-Augmented Generation)** — responde perguntas em português sobre mercado financeiro, recuperando contexto de notícias ingeridas e gerando resposta via LLM (vLLM/BentoML ou fallback local).
-
-A interface externa é uma API **FastAPI** ([app/main.py](app/main.py)) e um serviço de geração exposto por BentoML. Guardrails de entrada/saída em [src/security/guardrails.py](src/security/guardrails.py) e [src/security/pii_detection.py](src/security/pii_detection.py).
-
-### Ficha técnica
-
-| Campo | Valor |
-|-------|-------|
-| Tipo de sistema | Pipeline MLOps (previsão) + RAG LLM (chat) |
-| Domínio | Mercado financeiro brasileiro |
-| Idioma principal | Português (pt-BR) |
-| Modelo de geração (prod) | `Qwen/Qwen2.5-0.5B-Instruct-AWQ` (vLLM quantizado AWQ) |
-| Modelo de geração (local CPU) | `facebook/opt-125m` (dev) / `facebook/opt-1.3b` (fallback) / modo `simulated` |
-| Modelo de embeddings | `all-MiniLM-L6-v2` (SentenceTransformers, 384 dims) |
-| Vector store | FAISS `IndexFlatL2` |
-| Preditores | MLP PyTorch (64→32→1), MLP sklearn `(64, 32)`, Keras LSTM opcional, Ensemble |
-| Chunking | 300 palavras, overlap 50 |
-| Runtime | Python ≥3.10, <3.14 |
-| Serving | FastAPI + BentoML + vLLM; Docker Compose |
+> **Status do documento.** v1.0 — 2026-04-28
+> **Versão do sistema descrita.** Branch `docs` em commit `5553fb3` (snapshot atual do repositório).
+> **Dono do sistema.** Grupo 05 — FIAP MLET, Fase Datathon.
+> **Encarregado (DPO).** *A designar* — ver [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md#8-encarregado-dpo--art-41).
 
 ---
 
-## 2. Uso pretendido
+## Sumário
 
-### 2.1. Casos de uso alvo
-- **Educacional/datathon**: demonstrar pipeline MLOps reprodutível (DVC + MLflow + CI/CD + Docker).
-- **Exploração assistida**: responder perguntas contextuais sobre tendências de mercado recentes com base em notícias ingeridas.
-- **Baseline de previsão**: comparar frameworks (PyTorch vs. Sklearn vs. Keras) com métricas padronizadas (MAE, RMSE, MAPE).
-
-### 2.2. Fora de escopo (não usar para)
-- **Aconselhamento financeiro personalizado ou recomendação de investimento a clientes**. O sistema não é um consultor/analista registrado na CVM.
-- **Decisões automatizadas com efeito jurídico** sobre titulares sem revisão humana (Art. 20 LGPD).
-- **Operações algorítmicas** (alta frequência, execução automática).
-- **Análise em idiomas diferentes de português**.
-- **Uso com dados pessoais sensíveis** (saúde, biometria, etc.).
-- **Decisões de crédito, seguros ou contratação**.
-
-### 2.3. Usuários previstos
-Estudantes, pesquisadores e desenvolvedores explorando MLOps. Não há onboarding para usuários finais leigos — interface é API, não UI.
+1. [Visão geral do sistema](#1-visão-geral-do-sistema)
+2. [Casos de uso pretendidos](#2-casos-de-uso-pretendidos)
+3. [Casos de uso fora do escopo](#3-casos-de-uso-fora-do-escopo)
+4. [Arquitetura](#4-arquitetura)
+5. [Componentes](#5-componentes)
+6. [Dados](#6-dados)
+7. [Avaliação de capacidades](#7-avaliação-de-capacidades)
+8. [Avaliação de segurança](#8-avaliação-de-segurança)
+9. [Avaliação ética, fairness e explicabilidade](#9-avaliação-ética-fairness-e-explicabilidade)
+10. [Limitações e riscos conhecidos](#10-limitações-e-riscos-conhecidos)
+11. [Conformidade regulatória](#11-conformidade-regulatória)
+12. [Monitoramento e atualização](#12-monitoramento-e-atualização)
+13. [Histórico de versões](#13-histórico-de-versões)
 
 ---
 
-## 3. Arquitetura do sistema
+## 1. Visão geral do sistema
+
+**Nome.** Sistema de Análise Financeira Assistida por IA — Datathon MLET / Grupo 05.
+
+**Propósito.** Combinar (a) **previsão estatística** de preços de ações em horizonte curto via modelos de regressão e (b) **análise contextual** sobre documentos financeiros (notícias, boletins, relatórios) via RAG e agente ReAct, expostos em uma API HTTP.
+
+**Modalidades de saída.**
+- Previsão numérica de preço de fechamento (regressão).
+- Resposta em linguagem natural a perguntas sobre o conteúdo da base de conhecimento.
+- Recomendação categórica de alocação (gerada por LLM ou por respostas simuladas — ver §10).
+
+**Status.** Projeto acadêmico em estágio de **prova de conceito**. Sem audiência pública, sem operação financeira real, sem certificação CVM.
+
+---
+
+## 2. Casos de uso pretendidos
+
+| Caso de uso | Audiência | Componente principal |
+|-------------|-----------|----------------------|
+| Demonstração acadêmica de pipeline MLOps (treino + tracking + deploy) | Avaliadores FIAP, banca | [src/models/train.py](src/models/train.py), MLflow, [dvc.yaml](dvc.yaml) |
+| Comparação de frameworks (PyTorch vs Sklearn vs Keras) sobre série univariada | Estudantes, professores | [benchmark.py](benchmark.py) |
+| Exploração de RAG com FAISS sobre corpus financeiro pequeno | Estudantes | [src/rag/](src/rag/) |
+| Exploração de agente ReAct com chamada de ferramentas | Estudantes | [src/agent/react_agent.py](src/agent/react_agent.py) |
+
+---
+
+## 3. Casos de uso fora do escopo
+
+Os usos abaixo são **explicitamente desencorajados** e o sistema **não** está apto a sustentá-los:
+
+- ❌ **Recomendação real de investimento a clientes** (atividade regulada — Resolução CVM 39/2021).
+- ❌ **Trading automatizado** ou execução de ordens com base nas previsões.
+- ❌ **Aconselhamento financeiro a leigos** sem disclaimer e sem revisão humana.
+- ❌ **Análise de ativos com baixa liquidez** (small caps com histórico curto) — modelo não foi validado nesse regime (ver [docs/EXPLAINABILITY_FAIRNESS.md §5.2 R1](docs/EXPLAINABILITY_FAIRNESS.md#52-riscos-concretos-no-projeto)).
+- ❌ **Decisão crítica não revisada por pessoa natural** — viola Art. 20 da LGPD.
+- ❌ **Tratamento de dados pessoais** sem o estado de adequação descrito em [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md).
+- ❌ **Operação em produção pública** no estado atual — ver §8 (sem autenticação, CORS aberto, sem rate limiting).
+
+---
+
+## 4. Arquitetura
 
 ```
-                              ┌──────────────────────┐
-Usuário ─── HTTP ──────────► │   FastAPI app/main   │
-                              └──────────┬───────────┘
-                                         │
-                         ┌───────────────┼──────────────────┐
-                         ▼               ▼                  ▼
-                ┌────────────────┐ ┌────────────┐ ┌─────────────────┐
-                │ InputGuardrail │ │  Retriever │ │ OutputGuardrail │
-                │ (regex PI,     │ │  (FAISS    │ │ (Presidio PII)  │
-                │  len ≤ 4096)   │ │   top-k)   │ └─────────────────┘
-                └────────────────┘ └─────┬──────┘
-                                         │
-                              ┌──────────▼──────────┐
-                              │  Generator.py       │
-                              │  → BentoML → vLLM   │
-                              │  → fallback local   │
-                              │  → fallback simulado│
-                              └──────────┬──────────┘
-                                         │
-                                         ▼
-                                    Resposta pt-BR
+┌───────────────────────────────────────────────────────────────┐
+│                       Cliente HTTP                            │
+│                  (api_test.html / curl)                       │
+└────────────┬──────────────────────────┬───────────────────────┘
+             │                          │
+             ▼                          ▼
+   ┌────────────────────┐    ┌────────────────────┐
+   │   /ingest          │    │   /query  /agent   │
+   │   (RAG ingestion)  │    │   (RAG + Agent)    │
+   └────────┬───────────┘    └─────┬──────────────┘
+            │                      │
+            ▼                      ▼
+   ┌────────────────────┐    ┌────────────────────┐
+   │ embedder           │    │ Agente ReAct       │
+   │ (SentenceTransfor- │    │ (react_agent.py)   │
+   │  mers all-MiniLM)  │    │ ┌────────────────┐ │
+   └────────┬───────────┘    │ │ search_docs    │ │
+            │                │ │ fetch_news     │ │
+            ▼                │ │ summarize      │ │
+   ┌────────────────────┐    │ └────────────────┘ │
+   │ FAISS IndexFlatL2  │◄───┤                    │
+   │ (in-memory, global)│    └─────┬──────────────┘
+   └────────────────────┘          │
+                                   ▼
+                         ┌──────────────────────┐
+                         │ Generator            │
+                         │ (BentoML/vLLM remoto │
+                         │  ou HF local         │
+                         │  ou simulated)       │
+                         └──────────────────────┘
+
+   ┌──────────────────────────────────────────┐
+   │ Modelos preditivos (offline / batch)     │
+   │ MLP PyTorch · MLP Sklearn · LSTM Keras   │
+   │ Treinados via train.py, tracking MLflow  │
+   └──────────────────────────────────────────┘
 ```
 
-Subsistema de previsão (offline):
-```
-yfinance ──► data/ingest.py ──► DVC ──► src/models/baseline.py ──► MLflow
-                                                │
-                                                ▼
-                                 evaluation/benchmark.py (CSV + gráficos)
-                                                │
-                                                ▼
-                                 ci-cd/register_model.py (MLflow Registry)
-```
-
-Arquivos principais:
-- API: [app/main.py](app/main.py), [src/serving/app.py](src/serving/app.py)
-- RAG: [src/rag/embedding.py](src/rag/embedding.py), [src/rag/retriever.py](src/rag/retriever.py), [src/rag/generator.py](src/rag/generator.py)
-- Agente: [src/agent/react_agent.py](src/agent/react_agent.py), [src/agent/rag_pipeline.py](src/agent/rag_pipeline.py)
-- Segurança: [src/security/guardrails.py](src/security/guardrails.py), [src/security/pii_detection.py](src/security/pii_detection.py)
-- Previsão: [src/models/baseline.py](src/models/baseline.py), [src/models/train.py](src/models/train.py)
-- Avaliação: [evaluation/benchmark.py](evaluation/benchmark.py)
-- Orquestração: `dvc.yaml`, `params.yaml`, [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml), [.github/workflows/retrain.yml](.github/workflows/retrain.yml)
-- Deploy: [docker-compose.yaml](docker-compose.yaml), [docker/docker-compose.bento.remote.yml](docker/docker-compose.bento.remote.yml)
+Detalhamento: [src/serving/app.py](src/serving/app.py), [src/agent/react_agent.py](src/agent/react_agent.py), [src/rag/](src/rag/).
 
 ---
 
-## 4. Componentes de modelo
+## 5. Componentes
 
-### 4.1. LLM de geração (RAG)
+### 5.1 API HTTP (FastAPI)
+| Atributo | Valor |
+|----------|-------|
+| Arquivo | [src/serving/app.py](src/serving/app.py) |
+| Endpoints | `POST /ingest`, `GET /query`, `POST /agent` |
+| Autenticação | **Nenhuma** (gap conhecido — ver [docs/OWASP.md §3.9](docs/OWASP.md#39-api12023--a012021--broken-access-control)) |
+| CORS | `allow_origins=["*"]` (gap — ver [docs/OWASP.md §3.10](docs/OWASP.md#310-a052021--security-misconfiguration-cors-permissivo)) |
 
-| Atributo | Produção (GPU remota) | Local CPU | Simulado |
-|----------|----------------------|-----------|----------|
-| Modelo | `Qwen/Qwen2.5-0.5B-Instruct-AWQ` | `facebook/opt-125m` / `opt-1.3b` | Regras em [src/rag/generator.py:118-152](src/rag/generator.py#L118-L152) |
-| Serving | vLLM + BentoML (RunPod) | Transformers pipeline | Nenhum |
-| Quantização | AWQ 4-bit | Nenhuma (FP32) | N/A |
-| Contexto | até 32k (teórico) | 2048 | N/A |
-| Licença | Apache 2.0 (Qwen) / MIT (OPT) | idem | N/A |
-| Prompt template | `"Pergunta: {query}\n\nContexto: {context}\n\nResponda em português..."` | idem | Heurística por palavra-chave |
+### 5.2 Modelos preditivos
+Documentados em detalhe no [Model Card](docs/MODEL_CARD.md).
 
-**Decoding padrão:** `temperature=0.7`, `do_sample=True`, `max_new_tokens=256` ([src/rag/generator.py:106](src/rag/generator.py#L106)).
+| Modelo | Framework | Artefato |
+|--------|-----------|----------|
+| MLP_PyTorch | PyTorch 2.x | `modelo_pytorch.pth` |
+| MLPRegressor | Scikit-learn | `modelo_sklearn.joblib` |
+| LSTM | Keras / TensorFlow | `modelo_{ticker}.keras` |
+| Baseline | Persistence (último valor) | computado em runtime |
 
-### 4.2. Embedder
+### 5.3 Pipeline RAG
+| Componente | Implementação | Arquivo |
+|------------|---------------|---------|
+| Embedder | `SentenceTransformer("all-MiniLM-L6-v2")` | [src/rag/embedding.py:31-44](src/rag/embedding.py#L31-L44) |
+| Chunker | Janela 300 palavras, overlap 50 | [src/rag/embedding.py:12-21](src/rag/embedding.py#L12-L21) |
+| Vector Store | `faiss.IndexFlatL2` (in-memory, global) | [src/rag/embedding.py:75-76](src/rag/embedding.py#L75-L76) |
+| Retriever | Top-K por distância L2 | [src/rag/retriever.py](src/rag/retriever.py) |
+| Generator | Bento/vLLM (`Qwen2.5-0.5B-Instruct-AWQ`) ou HF (`opt-1.3b`/`distilgpt2`) ou `simulated` | [src/rag/generator.py](src/rag/generator.py) |
 
-- Modelo: `all-MiniLM-L6-v2` (SentenceTransformers).
-- Dimensão: 384.
-- Treinamento original: corpus multilíngue de similaridade semântica.
-- Adequação a pt-BR: moderada — não é especializado em português; embeddings menos densos em vocabulário financeiro brasileiro que num modelo dedicado.
+### 5.4 Agente ReAct
+| Atributo | Valor |
+|----------|-------|
+| Arquivo | [src/agent/react_agent.py](src/agent/react_agent.py) |
+| Ferramentas | `search_documents`, `fetch_news`, `summarize_context` |
+| `max_steps` | Configurável via [config/](config/) |
+| Trace exposto | Sim (campo `trace` na resposta) |
 
-### 4.3. Preditores de séries temporais
-
-Todos treinados sobre `Close` normalizado com `MinMaxScaler(0, 1)` e janela configurável (padrão 90 dias):
-
-| Framework | Arquitetura | Hiperparâmetros |
-|-----------|-------------|-----------------|
-| PyTorch | MLP 3 camadas (`input→64→32→1`, ReLU) | Adam lr=1e-3, 50 epochs, MSE loss |
-| Sklearn | `MLPRegressor(64, 32)` | `max_iter=500` |
-| Keras | LSTM (opcional, via `--keras`) | carregado de artefato `.keras` |
-| Baseline | Último valor da janela (naive) | sem parâmetros |
-| Ensemble | Média aritmética dos acima | — |
-
-Métricas reportadas: **MAE, RMSE, MAPE** (em escala original, via `scaler.inverse_transform`) — ver [src/models/baseline.py:86-100](src/models/baseline.py#L86-L100).
-
-### 4.4. Agente ReAct (experimental)
-
-[src/agent/react_agent.py](src/agent/react_agent.py) expõe um loop de raciocínio com ferramentas (search, retrieve). **Não ativado por padrão no endpoint principal** — uso explícito via `rag_pipeline.py agent`. Ver §7 para limitações.
-
----
-
-## 5. Dados
-
-### 5.1. Corpus RAG
-- **Fonte**: notícias financeiras brasileiras coletadas por `newspaper3k`, configuradas em [src/rag/data_loader.py](src/rag/data_loader.py).
-  - `seudinheiro.com/mercados`
-  - `einvestidor.estadao.com.br/mercado`
-  - `infomoney.com.br/mercados`
-- **Volume**: variável (dependente da coleta no momento da execução — tipicamente dezenas de artigos).
-- **Licenciamento**: conteúdo jornalístico de terceiros. **Uso restrito a pesquisa acadêmica/datathon** (fair use educacional). Distribuição pública do índice FAISS populado **não é autorizada**.
-- **Atualização**: sob demanda, via `POST /ingest` ou execução de [src/rag/embedding.py](src/rag/embedding.py).
-- **Viés esperado**: perspectiva predominantemente brasileira, foco em renda variável/mercado local, possível tendência editorial dos veículos.
-
-### 5.2. Séries financeiras
-- **Fonte**: Yahoo Finance via `yfinance>=0.2.40` (declarado em [pyproject.toml](pyproject.toml#L23)).
-- **Campos usados**: `Close` diário.
-- **Tickers**: parametrizáveis (`--ticker`); padrão sujeito a `params.yaml`.
-- **Risco de qualidade**: dados da API podem ter ajustes históricos retroativos (splits, dividendos) que alteram resultados entre execuções.
-
-### 5.3. PII / dados pessoais
-O corpus **pode conter nomes de analistas, executivos, e eventualmente PII em comentários**. Controles de mitigação:
-- Detecção: [src/security/pii_detection.py](src/security/pii_detection.py) cobre CPF, CNPJ, e-mail, telefone BR, cartão, CEP, IP.
-- Sanitização saída: `OutputGuardrail` via Presidio ([src/security/guardrails.py:56-92](src/security/guardrails.py#L56-L92)).
-- **Gap atual**: sanitização não é aplicada na ingestão. Ver [docs/LGPD.md](docs/LGPD.md).
+### 5.5 Infraestrutura
+| Item | Detalhe |
+|------|---------|
+| Tracking | MLflow local (`sqlite:///mlflow.db`) |
+| Versionamento de dados | DVC ([dvc.yaml](dvc.yaml)) |
+| Containerização | Docker Compose (`docker/docker-compose.yml`) |
+| Inferência LLM remota | RunPod com vLLM AWQ (validada — [README.md:119-128](README.md#L119-L128)) |
+| Gerenciamento de deps | Poetry ([pyproject.toml](pyproject.toml)) |
 
 ---
 
-## 6. Avaliação
+## 6. Dados
 
-### 6.1. Previsão (subsistema quantitativo)
+### 6.1 Dados de treino dos modelos preditivos
+- **Fonte.** CSV com cotações históricas (coluna `Close`) — caminho configurável via `--data-path` ([train.py:315](src/models/train.py#L315)).
+- **Janela.** Configurável (`--janela`), default em [config/](config/).
+- **Split.** Temporal 80/20 ([train.py:169-171](src/models/train.py#L169-L171)).
+- **Pré-processamento.** `MinMaxScaler` no fechamento ([train.py:117-118](src/models/train.py#L117-L118)).
 
-Pipeline em [evaluation/benchmark.py](evaluation/benchmark.py):
-- Consulta runs MLflow do experimento `previsao_acoes`.
-- Produz `reports/metrics_comparison.csv`, `reports/metrics.json` e gráficos.
-- Métricas por framework: `mae_{framework}`, `rmse_{framework}`, `mape_{framework}`.
-- **Benchmark atual**: ≥3 configurações documentadas (PyTorch, Sklearn, Keras) conforme [README.md](README.md).
+### 6.2 Dados ingeridos no RAG
+- **Fonte primária.** Notícias carregadas via [src/rag/data_loader.py](src/rag/data_loader.py) (sem whitelist explícita — gap em [docs/OWASP.md §3.3](docs/OWASP.md#33-llm042025--data-and-model-poisoning)).
+- **Fonte secundária.** Documentos enviados pelo cliente em `POST /ingest`.
+- **Persistência.** Apenas em memória do processo. **Não há** banco persistente.
 
-### 6.2. RAG (subsistema qualitativo)
-
-- **Métricas quantitativas**: não implementadas (sem ground truth curado). O projeto reporta métricas operacionais (latência, disponibilidade) mas não **faithfulness**, **context relevance** ou **answer correctness**.
-- **Teste ofensivo**: [tests/test_guardrails.py](tests/test_guardrails.py) valida bloqueio de prompt injection e remoção de PII.
-- **Teste de integração**: [tests/test_api.py](tests/test_api.py), [tests/test_ingest.py](tests/test_ingest.py), [tests/test_plot_metrics.py](tests/test_plot_metrics.py).
-- **Cobertura**: medida via `pytest-cov` (configuração em [pyproject.toml](pyproject.toml)).
-
-**Lacuna**: não há benchmark automatizado de qualidade de resposta (ex.: RAGAS, TruLens). É a próxima evolução recomendada antes de qualquer uso externo.
-
-### 6.3. Red-team / safety
-- Testes manuais de prompt injection registrados em [tests/test_guardrails.py](tests/test_guardrails.py) (padrões `ignore previous instructions`, `you are now`, etc.).
-- Não há avaliação sistemática de: jailbreaks multilíngues, injeção indireta via corpus ingerido, ataques de embedding inversion, tool misuse no agente ReAct.
+### 6.3 Dados pessoais
+Inventário completo em [docs/LGPD_PLAN.md §2](docs/LGPD_PLAN.md#2-mapeamento-de-dados-pessoais-registro-de-operações-de-tratamento).
 
 ---
 
-## 7. Limitações conhecidas
+## 7. Avaliação de capacidades
 
-### 7.1. Capacidade do LLM
-- `Qwen2.5-0.5B` (500M parâmetros) é **pequeno por padrão de 2026**. Capacidade limitada em raciocínio multi-hop, matemática e seguir instruções complexas.
-- `facebook/opt-125m` (fallback CPU) é ainda mais fraco — usado apenas para desenvolvimento.
-- O **modo `simulated`** em [src/rag/generator.py:118-152](src/rag/generator.py#L118-L152) retorna respostas **heurísticas baseadas em palavras-chave**, não em geração real. Útil para demo, mas **não representa a qualidade do pipeline em produção** — é importante não interpretar suas respostas como saída do LLM.
+### 7.1 Modelos preditivos
 
-### 7.2. RAG
-- Chunking por **contagem de palavras** (300/50 overlap) — pode quebrar sentenças no meio e degradar retrieval.
-- `IndexFlatL2` é **busca exata O(n)** — ok para dezenas de milhares de chunks, não escala além.
-- **Sem reranker** — top-k é determinado só pela distância L2 do MiniLM, sensível a atalhos lexicais.
-- **Sem citação de fontes automática** na resposta final — o contexto é usado, mas o LLM não é obrigado a referenciar `doc_id`.
-- Embedder não é otimizado para português financeiro → **recall subótimo** em jargão brasileiro.
+Métricas de teste reportadas pelo último benchmark (ver MLflow / [benchmark.py](benchmark.py)):
 
-### 7.3. Previsão
-- Modelos usam **só o histórico de `Close`** — ignoram volume, indicadores técnicos, dados fundamentais, macro.
-- Janela e horizonte são parametrizados, mas **não validados com walk-forward**. Risco de *lookahead bias* se o pipeline for adaptado sem cuidado.
-- Ensemble é **média simples**, sem ponderação por qualidade individual.
-- **Benchmark baseline (naive) é competitivo**: MLPs rasos dificilmente superam "prever o último valor" em mercados eficientes.
+| Modelo | MAE ↓ | RMSE ↓ | MAPE ↓ |
+|--------|-------|--------|--------|
+| Baseline (persistence) | tracking via `mae_baseline` | `rmse_baseline` | `mape_baseline` |
+| MLP PyTorch | `mae_pytorch` | `rmse_pytorch` | `mape_pytorch` |
+| MLP Sklearn | `mae_sklearn` | `rmse_sklearn` | `mape_sklearn` |
+| LSTM Keras | `mae_keras` | `rmse_keras` | `mape_keras` |
 
-### 7.4. Agente ReAct
-- **Sem sandboxing**: tools têm acesso potencialmente irrestrito a I/O e rede.
-- **Sem limite formal de iterações** — risco de loop custoso controlado por prompt adversarial.
-- Não integrado aos guardrails por padrão.
+> Os valores numéricos são lidos do MLflow do último run. O System Card **não** os congela porque variam por ticker e janela; consulte o run mais recente ou o [Model Card](docs/MODEL_CARD.md).
 
-### 7.5. Guardrails
-- Lista de regex de prompt injection em [src/security/guardrails.py:15-28](src/security/guardrails.py#L15-L28) é **fácil de contornar** com Unicode/obfuscação/tradução.
-- Presidio com `language="pt"` não cobre 100% das entidades BR (falta `BR_CNPJ`, `CREDIT_CARD`, `IBAN_CODE` na lista atual).
-- Sanitização **só na saída**: não protege contra vazamento via canais laterais (logs, MLflow artifacts, etc.).
+### 7.2 RAG
 
----
+Avaliação ainda **não automatizada**. Plano em [docs/EXPLAINABILITY_FAIRNESS.md §6 Sprint 3](docs/EXPLAINABILITY_FAIRNESS.md#6-plano-de-implementação):
+- Faithfulness via RAGAS.
+- Recall@k em queries-canário por categoria.
+- Latência p95.
 
-## 8. Riscos e mitigações
+### 7.3 Agente
 
-Ver documentos dedicados:
-- **Técnicos (OWASP LLM Top 10 + API)**: [docs/OWASP.md](docs/OWASP.md).
-- **Jurídicos (LGPD)**: [docs/LGPD.md](docs/LGPD.md).
-
-Resumo dos principais riscos residuais:
-
-| Risco | Severidade | Mitigação ativa | Lacuna |
-|-------|------------|-----------------|--------|
-| Prompt injection direto | Alta | Regex + limite 4096 chars | Contorno por Unicode; classificador semântico ausente |
-| Prompt injection indireto via corpus | Alta | — | Nenhuma — corpus ingerido sem filtro |
-| Vazamento de PII | Alta | Presidio na saída | Não aplicado na ingestão; logs guardam prompt cru |
-| Transferência internacional (Art. 33 LGPD) | Alta | Caminho CPU local disponível | Sem sanitização pré-envio ao vLLM RunPod |
-| Alucinação financeira com aparência de conselho | Alta | Aviso em [README.md](README.md) | Sem disclaimer automático na resposta |
-| Denial of wallet (GPU RunPod) | Média | — | Sem rate limit; sem budget cap |
-| Poisoning do corpus | Média | DVC + MLflow auditam mudanças | Sem assinatura; sem allow-list de fontes |
-| Discriminação em recomendações | Média | — | Sem teste de fairness; ver [docs/LGPD.md](docs/LGPD.md) §4.4 |
+Métricas qualitativas:
+- Capacidade de selecionar a ferramenta correta dado o tipo de query (precisão de roteamento).
+- Taxa de respostas com `Final Answer` válida (ausência de loop infinito).
+- Latência média (impactada por `max_steps`).
 
 ---
 
-## 9. Considerações éticas
+## 8. Avaliação de segurança
 
-- **Decisão automatizada**: saída do RAG pode influenciar decisões financeiras. Recomenda-se disclaimer visível (`"conteúdo educacional, não é recomendação de investimento"`) e revisão humana obrigatória.
-- **Viés de fonte**: três veículos brasileiros específicos moldam a visão do sistema. Perspectivas de veículos internacionais, acadêmicos ou críticos estão sub-representadas.
-- **Acesso desigual**: sistema é em português. Usuários não fluentes ou com deficiências sensoriais não estão previstos no design atual.
-- **Transparência**: respostas do modo `simulated` podem ser confundidas com saída de LLM real. Deve haver indicação clara do modo ativo.
+**Documento mestre.** [docs/OWASP.md](docs/OWASP.md) — 10 ameaças mapeadas com referência direta ao código.
+**Cenários de Red Team.** [docs/RED_TEAMING.md](docs/RED_TEAMING.md) — 5 cenários executáveis com payloads `curl` reais.
 
----
+### 8.1 Sumário do estado atual
 
-## 10. Operação e monitoramento
+| Categoria | Status | Severidade |
+|-----------|--------|------------|
+| Autenticação e autorização | ❌ Ausente em todos os endpoints | **Crítica** |
+| CORS | ❌ `*` + `credentials=True` | **Alta** |
+| Prompt injection (direta) | ⚠️ Guardrail implementado mas **não integrado** | **Alta** |
+| Prompt injection (indireta via `/ingest`) | ❌ Sem mitigação | **Crítica** |
+| PII no output | ⚠️ Presidio implementado mas **não integrado** | **Alta** |
+| Rate limiting / DoS | ❌ Ausente | Média |
+| Excessive agency do agente | ⚠️ Mitigação parcial (TOOL_MAP fechado) | Média |
+| Misinformation financeira | ❌ Sem disclaimer obrigatório | **Crítica** |
 
-### 10.1. Observabilidade
-- **MLflow** (`sqlite:///mlflow/mlflow.db`): experimentos, métricas, artefatos.
-- **Logs Python** (`logging` padrão): WARNING em eventos de guardrail; INFO em auditoria PII.
-- **Health check**: `GET /health` em [app/main.py:23-29](app/main.py#L23-L29) retorna status + versão do modelo.
-- **Gap**: sem métricas Prometheus/OpenTelemetry; sem alerting.
-
-### 10.2. Atualização e retrain
-- **CI/CD**: [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) roda testes + lint em PR.
-- **Retrain**: [.github/workflows/retrain.yml](.github/workflows/retrain.yml) executa pipeline DVC.
-- **Registro de modelo**: [ci-cd/register_model.py](ci-cd/register_model.py) publica no MLflow Model Registry.
-
-### 10.3. Canais de suporte
-- Issues no GitHub (definir repositório canônico).
-- Canal LGPD/DPO: a nomear (ver [docs/LGPD.md](docs/LGPD.md) §1).
-- Report de vulnerabilidade: abrir issue marcando como `security` — **evitar PoCs públicos antes de fix**.
+### 8.2 Próximos passos
+Roadmap em [docs/OWASP.md §4](docs/OWASP.md#4-próximos-passos-sugeridos), priorizado P0 → P2.
 
 ---
 
-## 11. Dependências e supply chain
+## 9. Avaliação ética, fairness e explicabilidade
 
-Dependências declaradas em [pyproject.toml](pyproject.toml):
+**Documento mestre.** [docs/EXPLAINABILITY_FAIRNESS.md](docs/EXPLAINABILITY_FAIRNESS.md).
 
-| Categoria | Pacotes |
-|-----------|---------|
-| Core | `numpy>=1.26`, `pandas>=2.2`, `matplotlib>=3.8` |
-| ML | `scikit-learn>=1.4`, `joblib>=1.4` |
-| Dados | `yfinance>=0.2.40` |
-| DL | `torch>=2.2`, `tensorflow>=2.15` |
-| MLOps | `mlflow>=2.12`, `dvc>=3.50` |
-| Segurança | `presidio-analyzer>=2.2.362`, `presidio-anonymizer>=2.2.362` |
-| Dev/test | `black`, `ruff`, `pytest`, `pytest-cov`, `httpx` |
+### 9.1 Explicabilidade — estado atual
+| Camada | Hoje | Plano |
+|--------|------|-------|
+| Modelos preditivos | Apenas MAE/RMSE/MAPE | SHAP, Integrated Gradients (Captum), permutation importance |
+| RAG | `context` concatenado bruto, sem citação | Citações estruturadas `[1][2]`, faithfulness score |
+| Agente ReAct | Trace nativo do paradigma | Sanitização do trace, marcador `generation_mode: simulated` |
 
-Serviços externos invocados em runtime:
-- **Hugging Face Hub** — download de `all-MiniLM-L6-v2`, `Qwen2.5-0.5B-Instruct-AWQ`, `facebook/opt-*`.
-- **RunPod** — GPU para vLLM (transferência internacional potencial).
-- **Yahoo Finance** (via `yfinance`) — séries históricas.
-- **Veículos de notícias** (via `newspaper3k`) — corpus RAG.
+### 9.2 Fairness — riscos identificados
+| ID | Risco | Limiar / Métrica |
+|----|-------|------------------|
+| R1 | Performance gap por subgrupo de ticker (large vs small cap, setor) | Razão MAPE ≤ 1.5x |
+| R2 | Drift de regime macroeconômico | PSI ≤ 0.2 |
+| R3 | Cobertura desigual no RAG (BR vs internacional) | Recall@3 ≥ 0.7 |
+| R4 | Resposta categórica rígida em `_generate_simulated_answer` | Documentar como decisão de produto ou substituir |
+| R5 | Viés do LLM upstream (Qwen, OPT) | Bias eval em PT-BR |
 
-**Pre-commit**: [.pre-commit-config.yaml](.pre-commit-config.yaml) configurado. **Gap**: sem `pip-audit` / `safety` no CI.
+### 9.3 Considerações éticas adicionais
 
----
-
-## 12. Privacidade e conformidade
-
-- **LGPD (Brasil)**: plano detalhado em [docs/LGPD.md](docs/LGPD.md). Status atual: **não conforme para uso produtivo** (gaps P0 em logs, transferência internacional, direitos do titular).
-- **GDPR (UE)**: não analisado. Se houver titulares UE, exige revisão separada.
-- **Dados financeiros**: sem tratamento de dados pessoais sensíveis no projeto-base. Se adicionar perfil do investidor, precisa de consentimento (Art. 7º I + regulação CVM).
+- **Transparência ao usuário final.** Toda resposta com recomendação financeira deve carregar disclaimer obrigatório (ver §10).
+- **Direito à revisão (LGPD Art. 20).** Decisões automatizadas devem permitir contestação por pessoa natural — endpoint `POST /lgpd/review` planejado.
+- **Não discriminação.** Modelo não deve ser usado para precificar serviço ou negar acesso baseado em característica protegida — fora do escopo, mas importante balizar.
 
 ---
 
-## 13. Versionamento deste System Card
+## 10. Limitações e riscos conhecidos
 
-| Versão | Data | Mudanças |
-|--------|------|----------|
-| 0.1.0 | 2026-04-23 | Versão inicial cobrindo RAG + previsão + guardrails + LGPD/OWASP links |
+### 10.1 Capacidade técnica
+- Modelos preditivos são **univariados** — só usam histórico de `Close`. Ignoram volume, macroeconomia, notícias, dividendos, splits.
+- Janela temporal fixa configurada — não adapta a horizontes diferentes.
+- LSTM treina apenas se `--keras` for passado ([train.py:252](src/models/train.py#L252)).
+- LLM padrão de fallback (`facebook/opt-1.3b`, `distilgpt2`) é **fraco em português** — frequente saída incoerente.
+- Modo `simulated` retorna respostas **hardcoded** ([generator.py:137-171](src/rag/generator.py#L137-L171)) que **parecem** geradas mas são determinísticas por palavra-chave.
 
-**Política de atualização**: este documento deve ser revisado:
-- Em toda mudança de modelo (LLM, embedder, preditor).
-- Em toda mudança de fonte de dados.
-- Em todo incidente de segurança ou privacidade.
-- A cada release minor (0.x.0).
+### 10.2 Operacional
+- Índice FAISS é **global e em memória** — perdido a cada reinício.
+- Sem persistência entre sessões.
+- Sem isolamento entre usuários (ver [docs/RED_TEAMING.md §RT-03](docs/RED_TEAMING.md#rt-03--exfiltração-de-pii-cross-tenant-pelo-índice-faiss-global)).
+- Variáveis globais de módulo no RAG ([embedding.py:46-49](src/rag/embedding.py#L46-L49)) impedem múltiplos workers paralelos sem cuidado adicional.
+
+### 10.3 Disclaimer obrigatório
+
+> Toda saída do sistema com sugestão de investimento deve ser acompanhada do seguinte aviso, conforme [docs/RED_TEAMING.md §RT-04](docs/RED_TEAMING.md#rt-04--manipulação-de-recomendação-financeira-pump--dump-assistido-por-ia):
+>
+> *"Conteúdo educacional e experimental. Não constitui recomendação de investimento nos termos da Resolução CVM 39/2021. Consulte um analista de valores mobiliários autorizado antes de tomar decisões financeiras."*
 
 ---
 
-## 14. Apêndice A — Matriz de conformidade com frameworks
+## 11. Conformidade regulatória
 
-| Framework | Seção correspondente |
-|-----------|---------------------|
-| NIST AI RMF — Govern | §1, §10, §13 |
-| NIST AI RMF — Map | §2, §3, §5 |
-| NIST AI RMF — Measure | §6, §7 |
-| NIST AI RMF — Manage | §8, §10.2, [docs/OWASP.md](docs/OWASP.md) |
-| OWASP Top 10 LLM 2025 | [docs/OWASP.md](docs/OWASP.md) |
-| LGPD (Lei 13.709/2018) | [docs/LGPD.md](docs/LGPD.md) |
-| Microsoft MLOps Maturity — Experiment Mgmt | Stage 3 (ver [README.md](README.md)) |
+| Norma | Status | Documento |
+|-------|--------|-----------|
+| **LGPD** (Lei 13.709/2018) | Plano de adequação elaborado, **execução pendente** | [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md) |
+| **Resolução CVM 39/2021** (analista de valores) | **Não aplicável** se uso restrito a propósito acadêmico/educacional + disclaimer | — |
+| **Marco Civil da Internet** (Lei 12.965/2014) | Aplicável a logs e guarda — alinhado se logs sanitizados | — |
+| **NIST AI RMF** | Referência adotada para estrutura de avaliação | — |
+| **EU AI Act** | Não aplicável (sistema brasileiro), mas usado como referência para sistemas de alto risco | — |
 
-## 15. Apêndice B — Glossário mínimo
+---
 
-- **RAG**: Retrieval-Augmented Generation — geração baseada em contexto recuperado externamente.
-- **AWQ**: Activation-aware Weight Quantization — quantização pós-treino que preserva outliers.
-- **PII**: Personally Identifiable Information.
-- **ROPA**: Record of Processing Activities (Art. 37 LGPD).
-- **RIPD/DPIA**: Relatório de Impacto à Proteção de Dados (Art. 38 LGPD).
-- **MLOps**: Machine Learning Operations — disciplina que trata de CI/CD, versionamento e observabilidade de modelos.
+## 12. Monitoramento e atualização
+
+### 12.1 Métricas em produção (planejadas)
+
+| Métrica | Fonte | Alerta |
+|---------|-------|--------|
+| Latência p95 por endpoint | Prometheus + FastAPI middleware | > 3s |
+| Taxa de erro 5xx | Prometheus | > 1% |
+| Tokens consumidos por hora (vLLM) | Logs vLLM | > baseline + 50% |
+| PSI dos modelos preditivos | Job DVC diário | > 0.2 |
+| Detecções do `InputGuardrail` | Logger estruturado | Pico anômalo |
+| Detecções do `OutputGuardrail` (PII) | Logger estruturado | Qualquer detecção → alerta |
+
+### 12.2 Cadência de revisão
+
+| Revisão | Frequência |
+|---------|------------|
+| System Card (este documento) | A cada release ou trimestral |
+| Model Card | A cada novo treino do modelo |
+| OWASP / Red Teaming | Trimestral + após mudança de superfície |
+| LGPD Plan | Trimestral + após mudança regulatória |
+| Fairness dashboard | Mensal |
+
+### 12.3 Critérios para retirar de uso (sunset)
+
+O sistema **deve** ser desativado se:
+1. PSI dos modelos preditivos > 0.5 sustentado por 7 dias sem retreino.
+2. Faithfulness RAG < 0.6 sustentado por 7 dias.
+3. Incidente de segurança Crítico não remediado em 72h.
+4. Vazamento de PII confirmado.
+
+---
+
+## 13. Histórico de versões
+
+| Versão | Data | Mudança | Autor |
+|--------|------|---------|-------|
+| 1.0 | 2026-04-28 | Versão inicial do System Card | Grupo 05 |
+
+---
+
+## Documentos relacionados
+
+- [docs/MODEL_CARD.md](docs/MODEL_CARD.md) — Model Card detalhado dos modelos preditivos
+- [docs/OWASP.md](docs/OWASP.md) — Mapeamento OWASP de ameaças
+- [docs/RED_TEAMING.md](docs/RED_TEAMING.md) — Cenários de Red Teaming
+- [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md) — Plano de adequação à LGPD
+- [docs/EXPLAINABILITY_FAIRNESS.md](docs/EXPLAINABILITY_FAIRNESS.md) — Explicabilidade e Fairness
+- [README.md](README.md) — Documentação do projeto
