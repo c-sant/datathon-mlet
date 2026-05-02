@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import faiss
 import mlflow
@@ -120,7 +121,12 @@ def ingest_documents(documents, overwrite=True, log_run=True):
             mlflow.log_param("vector_store", "FAISS")
             mlflow.log_param("num_docs", len(docs))
             mlflow.log_param("num_chunks", len(all_chunks))
-            mlflow.log_artifact(__file__)
+            try:
+                artifact_path = Path(__file__).resolve()
+                if artifact_path.is_file():
+                    mlflow.log_artifact(str(artifact_path))
+            except OSError as exc:
+                print(f"Aviso: não foi possível registrar artifact no MLflow: {exc}")
 
     print("Ingestão concluída. Documentos coletados, chunkados e embeddings armazenados no FAISS.")
 
@@ -131,7 +137,8 @@ def ingest_documents(documents, overwrite=True, log_run=True):
 
 
 # Ingestão inicial com notícias padrão
+# Evita ruído no startup da API caso o backend de tracking não esteja acessível.
 try:
-    ingest_documents(load_news(), overwrite=True, log_run=True)
+    ingest_documents(load_news(), overwrite=True, log_run=False)
 except Exception as exc:
     print(f"Falha na ingestão inicial de notícias: {exc}")

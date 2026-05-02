@@ -1,6 +1,6 @@
 try:
     from newspaper import Article
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     Article = None
 
 DEFAULT_URLS = [
