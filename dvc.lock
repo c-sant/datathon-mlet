@@ -18,8 +18,8 @@ stages:
       size: 1157
     - path: pyproject.toml
       hash: md5
-      md5: 106f39ff5c0a02ad92ea9da4143e5e2d
-      size: 1888
+      md5: 6847b79d5451cfe16d0312ca0e9c7531
+      size: 1951
       isexec: true
     - path: src/features/feature_engineering.py
       hash: md5
@@ -46,15 +46,15 @@ stages:
     outs:
     - path: mlflow/mlflow.db
       hash: md5
-      md5: 3aca12d7bd91d91eb1afbf5462d9b5cb
+      md5: 0aa21a5493b9c10ef6a924e967c9b9fb
       size: 663552
     - path: models/modelo_ITUB4.SA.keras
       hash: md5
-      md5: b38bbc3cde0a177dbd7b79777c54d44f
+      md5: 8b7731196da5b0680d4a2e823aa3c8d6
       size: 416486
     - path: models/modelo_ITUB4.SA_pytorch.pth
       hash: md5
-      md5: 7334e6d3bbf367c2a8592abb9e20ecd9
+      md5: 9501fd75ec224c6b058202122143bf2c
       size: 150229
     - path: models/modelo_ITUB4.SA_sklearn.joblib
       hash: md5
@@ -72,11 +72,11 @@ stages:
       size: 67392
     - path: models/modelo_ITUB4.SA.keras
       hash: md5
-      md5: b38bbc3cde0a177dbd7b79777c54d44f
+      md5: 8b7731196da5b0680d4a2e823aa3c8d6
       size: 416486
     - path: models/modelo_ITUB4.SA_pytorch.pth
       hash: md5
-      md5: 7334e6d3bbf367c2a8592abb9e20ecd9
+      md5: 9501fd75ec224c6b058202122143bf2c
       size: 150229
     - path: models/modelo_ITUB4.SA_sklearn.joblib
       hash: md5
@@ -84,8 +84,8 @@ stages:
       size: 1184447
     - path: pyproject.toml
       hash: md5
-      md5: 106f39ff5c0a02ad92ea9da4143e5e2d
-      size: 1888
+      md5: 6847b79d5451cfe16d0312ca0e9c7531
+      size: 1951
       isexec: true
     - path: src/models/baseline.py
       hash: md5
@@ -105,16 +105,16 @@ stages:
     outs:
     - path: reports/metrics.json
       hash: md5
-      md5: 56a6706115dccf0c64e16a3145dbd530
-      size: 368
+      md5: 4de0c6260c1d33995a46ce7172d54e93
+      size: 370
     - path: reports/metrics_comparison.csv
       hash: md5
-      md5: debfccacddc30294366bb93e17e4a7af
-      size: 146
+      md5: 233b0647b1476a68f97c39851b28fef4
+      size: 148
     - path: reports/model_predictions_comparison.png
       hash: md5
-      md5: 0da86cac5cf49a0bd6598b27d304d36d
-      size: 117071
+      md5: 514f20ab057f28827ab7bd6dd26e64d6
+      size: 118272
   ingest:
     cmd: "PYTHONPATH=. python data/ingest.py --ticker ITUB4.SA --start 2025-04-01
       --end 2027-04-30 --output data/raw/stock_data.csv\n"
@@ -141,8 +141,8 @@ stages:
     deps:
     - path: reports/metrics.json
       hash: md5
-      md5: 56a6706115dccf0c64e16a3145dbd530
-      size: 368
+      md5: 4de0c6260c1d33995a46ce7172d54e93
+      size: 370
     - path: src/utils/plot_metrics.py
       hash: md5
       md5: 3d6b9d3b6a53fa5279a8b95c9d079048
@@ -151,16 +151,16 @@ stages:
     outs:
     - path: reports/comparacao_modelos.png
       hash: md5
-      md5: a52ef037354ff7abf891f3c663844270
-      size: 22951
+      md5: 9829ac9dd096b358e999f50390654b1c
+      size: 22939
     - path: reports/mape.png
       hash: md5
-      md5: 0eb2a39526aae93d17b91a3c85d50139
+      md5: 7604089d8347a1311fe4327645207f3a
       size: 20026
     - path: reports/ranking_mae.png
       hash: md5
-      md5: 4c07f9ac7a7155ccebba8ea72afa30b4
-      size: 20570
+      md5: 8552d8d2548e8c76984803a84ef13d96
+      size: 20547
   trading:
     cmd: "python src/utils/trading_simulation.py --data-path data/raw/stock_data.csv
       --janela 90 --modelo-pytorch models/modelo_ITUB4.SA_pytorch.pth --modelo-sklearn
@@ -220,8 +220,8 @@ stages:
       size: 25098
     - path: pyproject.toml
       hash: md5
-      md5: 106f39ff5c0a02ad92ea9da4143e5e2d
-      size: 1888
+      md5: 6847b79d5451cfe16d0312ca0e9c7531
+      size: 1951
       isexec: true
     - path: src/features/feature_engineering.py
       hash: md5

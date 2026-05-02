@@ -30,11 +30,13 @@ COPY tests/ tests/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cpu
 
+RUN python -m spacy download en_core_web_lg
+
 COPY . .
 
 RUN mkdir -p data/raw models reports mlflow \
     && chown -R appuser:appuser /app \
-    && git config --global --add safe.directory /app
+    && git config --system --add safe.directory /app
 
 USER appuser
 

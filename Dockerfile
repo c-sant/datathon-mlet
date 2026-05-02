@@ -36,7 +36,7 @@ COPY . .
 
 RUN mkdir -p data/raw models reports mlflow \
     && chown -R appuser:appuser /app \
-    && git config --global --add safe.directory /app
+    && git config --system --add safe.directory /app
 
 USER appuser
 
