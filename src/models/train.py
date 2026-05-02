@@ -298,7 +298,7 @@ def main(args):
     X_train_keras = X_keras[:tamanho_treino]
     X_test_keras = X_keras[tamanho_treino:]
 
-    tracking_uri = f"sqlite:///{MLFLOW_DIR / 'mlflow.db'}"
+    tracking_uri = f"sqlite:///{MLFLOW_DIR/'mlflow' / 'mlflow.db'}"
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("previsao_acoes")
 
