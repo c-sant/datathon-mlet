@@ -257,7 +257,7 @@ cmd: PYTHONPATH=. python data/ingest.py
 
 #### 1. **pipeline** (DVC Execution)
 ```yaml
-Container: datathon-mlet
+Container: datathon-grupo-05-pipeline-1 (gerenciado pelo Docker Compose)
 Image: Dockerfile
 Command: dvc repro
 Função: Executa pipeline completo de dados
@@ -266,7 +266,7 @@ Volume: Montagem da raiz do projeto
 
 #### 2. **mlflow** (Experiment Tracking)
 ```yaml
-Container: datathon-mlflow-ui
+Container: datathon-grupo-05-mlflow-1 (gerenciado pelo Docker Compose)
 Image: Dockerfile
 Porta: 5000
 Command: mlflow ui --host 0.0.0.0
@@ -276,8 +276,8 @@ Armazenamento: SQLite (mlflow/mlflow.db)
 
 #### 3. **api** (Model Serving)
 ```yaml
-Container: datathon-mlet-api
-Image: Dockerfile
+Container: datathon-grupo-05-api-1 (gerenciado pelo Docker Compose)
+Image: datathon-grupo-05-api:latest
 Porta: 8000
 Framework: FastAPI + Uvicorn
 Endpoints:
@@ -289,7 +289,7 @@ Endpoints:
 
 #### 4. **test** (Test Runner)
 ```yaml
-Container: datathon-mlet-test
+Container: datathon-grupo-05-test-1 (gerenciado pelo Docker Compose)
 Image: Dockerfile.test
 Command: pytest -v
 Função: Validação de código e modelos

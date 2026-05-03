@@ -1,9 +1,10 @@
+name: datathon-grupo-05
+
 services:
   pipeline:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: datathon-mlet
     working_dir: /app
     volumes:
       - mlflow_db:/app/mlflow # pasta que contém mlflow.db
@@ -14,7 +15,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: datathon-mlflow-ui
     working_dir: /app
     volumes:
       - mlflow_db:/app/mlflow # pasta que contém mlflow.db
@@ -28,10 +28,10 @@ services:
       --backend-store-uri sqlite:///mlflow/mlflow.db
 
   api:
+    image: datathon-grupo-05-api:latest
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: datathon-mlet-api
     working_dir: /app
     volumes:
       - mlflow_db:/app/mlflow # pasta que contém mlflow.db
@@ -54,7 +54,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test
-    container_name: datathon-mlet-test
     working_dir: /app
     volumes:
       - .:/app
@@ -64,9 +63,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: datathon-rag-app
     ports:
-      - "8000:8000" # FastAPI endpoint
+      - "8002:8000" # FastAPI endpoint
       - "8001:8001" # Prometheus metrics endpoint
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -93,7 +91,6 @@ services:
   #Prometheus
   prometheus:
     image: prom/prometheus:v2.51.0
-    container_name: datathon-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -112,7 +109,6 @@ services:
   # Grafana
   grafana:
     image: grafana/grafana:10.3.1
-    container_name: datathon-grafana
     ports:
       - "3001:3000"
     environment:
@@ -134,7 +130,6 @@ services:
   #Langfuse (LLM Observability)
   langfuse:
     image: langfuse/langfuse:2
-    container_name: datathon-langfuse
     ports:
       - "3000:3000"
     environment:
@@ -152,7 +147,6 @@ services:
 
   langfuse-db:
     image: postgres:15-alpine
-    container_name: datathon-langfuse-db
     environment:
       - POSTGRES_USER=langfuse
       - POSTGRES_PASSWORD=langfuse
@@ -170,8 +164,18 @@ services:
 
 volumes:
   prometheus_data:
+    name: datathon-grupo-05_prometheus_data
   grafana_data:
+    name: datathon-grupo-05_grafana_data
   langfuse_db_data:
+    name: datathon-grupo-05_langfuse_db_data
   mlflow_db:
+    name: datathon-grupo-05_mlflow_db
   mlruns_data:
+    name: datathon-grupo-05_mlruns_data
   huggingface_cache:  # cache do modelo HF — evita download a cada rebuild
+    name: datathon-grupo-05_huggingface_cache
+
+networks:
+  datathon-net:
+    name: datathon-grupo-05_datathon-net
