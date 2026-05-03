@@ -6,14 +6,14 @@ Cobre os **três modelos de regressão** treinados pelo pipeline em [src/models/
 
 | Variante | Framework | Artefato salvo | Função de treino |
 |----------|-----------|----------------|------------------|
-| `MLP_PyTorch` | PyTorch 2.x | `modelo_{ticker}_pytorch.pth` | [`treinar_pytorch`](src/models/train.py#L57-L76) |
-| `MLPRegressor` | scikit-learn | `modelo_{ticker}_sklearn.joblib` | [train.py:228-243](src/models/train.py#L228-L243) |
-| `LSTM` | Keras / TensorFlow | `modelo_{ticker}.keras` | [train.py:255-291](src/models/train.py#L255-L291) |
-| `Baseline` (referência) | — | computado em runtime | [train.py:194-199](src/models/train.py#L194-L199) |
+| `MLP_PyTorch` | PyTorch 2.x | `modelo_{ticker}_pytorch.pth` | [`treinar_pytorch`](src/models/train.py#L191-L212) |
+| `MLPRegressor` | scikit-learn | `modelo_{ticker}_sklearn.joblib` | [train.py:363-378](src/models/train.py#L363-L378) |
+| `LSTM` | Keras / TensorFlow | `modelo_{ticker}.keras` | [train.py:384-428](src/models/train.py#L384-L428) |
+| `Baseline` (naïve persistence) | — | computado em runtime | [`criar_baseline_naive`](src/models/train.py#L229-L250), [src/models/baseline.py](src/models/baseline.py) |
 
-> **Versão deste card.** v1.0 — 2026-04-28
-> **Modelos treinados disponíveis no repositório.** `modelo_pytorch.pth`, `modelo_sklearn.joblib` (raiz do projeto)
-> **Tracking.** MLflow local em `mlflow/mlflow.db`, experimento `previsao_acoes`.
+> **Versão deste card.** v1.1 — 2026-05-03
+> **Tracking.** MLflow em `mlflow/mlflow.db` (UI em `:5000` via [docker-compose.yaml:15-30](docker-compose.yaml#L15-L30)), experimento `previsao_acoes`.
+> **Pipeline reprodutível.** [dvc.yaml](dvc.yaml) + [params.yaml](params.yaml).
 
 ---
 
@@ -24,54 +24,55 @@ Cobre os **três modelos de regressão** treinados pelo pipeline em [src/models/
 
 ### 1.2 Data
 - **Treino mais recente.** Definida pelo `run_id` MLflow ativo (consultar `mlflow ui`).
-- **Versão deste card.** v1.0 — 2026-04-28.
+- **Versão deste card.** v1.1 — 2026-05-03.
 
 ### 1.3 Tipo
-- **Tarefa.** Regressão sobre série temporal univariada.
-- **Entrada.** Vetor de `janela_dias` valores de fechamento normalizados em `[0, 1]` por `MinMaxScaler` ([train.py:117-118](src/models/train.py#L117-L118)).
-- **Saída.** Escalar — fechamento previsto para o próximo dia útil, normalizado; revertido pelo scaler para apresentação ([train.py:79-91](src/models/train.py#L79-L91)).
+- **Tarefa.** Regressão sobre série temporal **multivariada** (ver [src/features/feature_engineering.py](src/features/feature_engineering.py)).
+- **Entrada.** Janela de `janela_dias × N_features` com features engenheiradas (lags, retornos, indicadores técnicos), escaladas por `MinMaxScaler` ([train.py:173-174](src/models/train.py#L173-L174)).
+- **Saída.** Escalar — `target_next_close` previsto, normalizado; revertido pelo scaler para apresentação ([train.py:214-216](src/models/train.py#L214-L216)).
 
 ### 1.4 Arquitetura
 
-#### MLP_PyTorch ([train.py:43-54](src/models/train.py#L43-L54))
+#### MLP_PyTorch ([train.py:38-49](src/models/train.py#L38-L49))
 ```
-Input(janela_dias) → Linear(64) + ReLU → Linear(32) + ReLU → Linear(1)
+Input(input_dim) → Linear(64) + ReLU → Linear(32) + ReLU → Linear(1)
 ```
-- Otimizador: Adam, `lr` configurável em [config/](config/).
+- Otimizador: Adam, `lr` configurável em [config/model_config.yaml](config/model_config.yaml).
 - Loss: MSE.
 - Sem regularização explícita (sem dropout, sem weight decay).
-- Sem mini-batch — gradient descent batch-completo por época ([train.py:67-72](src/models/train.py#L67-L72)).
+- Treino implementado em [`treinar_pytorch`](src/models/train.py#L191-L212).
 
-#### MLPRegressor (sklearn) ([train.py:229-234](src/models/train.py#L229-L234))
-- `hidden_layer_sizes` configurável.
-- `max_iter` e `random_state` configuráveis.
+#### MLPRegressor (sklearn) ([train.py:363-378](src/models/train.py#L363-L378))
+- `hidden_layer_sizes=(64, 32)`, `max_iter=500`, `random_state=42` ([train.py:364](src/models/train.py#L364)).
 - Solver default `adam`, ativação default `relu`.
+- Persistido via `joblib.dump` em [train.py:367](src/models/train.py#L367).
 
-#### LSTM (Keras) ([train.py:255-262](src/models/train.py#L255-L262))
+#### LSTM (Keras) ([train.py:384-416](src/models/train.py#L384-L416))
 ```
-Input(janela_dias, 1)
-→ LSTM(50, return_sequences=True) → Dropout(0.2)
-→ LSTM(50, return_sequences=False) → Dropout(0.2)
+Input(janela_dias, n_features)
+→ LSTM(50, return_sequences=True)
+→ LSTM(50, return_sequences=False)
 → Dense(1)
 ```
 - Otimizador: `adam`. Loss: MSE.
-- `EarlyStopping` com `restore_best_weights=True` em `val_loss` ([train.py:266-270](src/models/train.py#L266-L270)).
+- `EarlyStopping` em [train.py:400](src/models/train.py#L400) com `restore_best_weights=True`.
+- Disparado apenas com flag `--keras` ([train.py:384](src/models/train.py#L384)).
 
-#### Baseline (persistence)
-`y_pred[t] = X_test[t, -1]` — retorna o último valor da janela como previsão. **Critério de comparação obrigatório.** Modelo só justifica deploy se vencer o baseline em MAE/RMSE/MAPE.
+#### Baseline (naïve persistence)
+`criar_baseline_naive` em [train.py:229-250](src/models/train.py#L229-L250) usa o `Close` do dia anterior como previsão. **Critério de comparação obrigatório.** Modelo só justifica deploy se vencer o baseline em MAE/RMSE/MAPE. Implementação alternativa em [src/models/baseline.py](src/models/baseline.py).
 
 ### 1.5 Hiperparâmetros
-Centralizados em [config/](config/), carregados por [src/utils/config_loader.py](src/utils/config_loader.py):
+Centralizados em [config/model_config.yaml](config/model_config.yaml) e [params.yaml](params.yaml), carregados por [src/utils/config_loader.py](src/utils/config_loader.py):
 - `pytorch_mlp.epochs`, `pytorch_mlp.optimizer.learning_rate`
 - `sklearn_mlp.hidden_layer_sizes`, `sklearn_mlp.max_iter`, `sklearn_mlp.random_state`
 - `keras_lstm.epochs`, `keras_lstm.batch_size`, `keras_lstm.early_stopping.patience`
 - `data.janela_dias`, `data.ticker`, `data.start_date`, `data.end_date`
 
 ### 1.6 Versionamento
-- **Modelo.** Salvo em `models/modelo_{ticker}_{framework}.{ext}` ([train.py:160-161](src/models/train.py#L160-L161)).
-- **Run.** `run_id` exposto via `print(f"run_id={run.info.run_id}")` ([train.py:301](src/models/train.py#L301)).
+- **Modelo.** Salvo em `models/modelo_{ticker}_pytorch.pth` ([train.py:342](src/models/train.py#L342)), `models/modelo_{ticker}_sklearn.joblib` ([train.py:363](src/models/train.py#L363)), `models/modelo_{ticker}.keras` ([train.py:416](src/models/train.py#L416)).
+- **Run.** `run_id` exposto via `print(f"run_id={run.info.run_id}")` ([train.py:435](src/models/train.py#L435)).
 - **Dados.** [dvc.yaml](dvc.yaml) + `dvc.lock` para reprodutibilidade.
-- **Tags MLflow.** `model_type`, `framework`, `owner`, `phase`, `problem_type`, `dataset_type` ([train.py:134-140](src/models/train.py#L134-L140)).
+- **Tags MLflow.** `model_type`, `framework`, `owner`, `phase`, `problem_type`, `dataset_type` definidas em `log_tags_padronizadas` ([train.py:253-259](src/models/train.py#L253-L259)).
 
 ### 1.7 Licença e contato
 - **Licença.** Definir (sugerido: MIT ou Apache 2.0 — dependendo da política da FIAP).
@@ -94,7 +95,7 @@ Estudantes, professores e avaliadores do programa MLET. Não há provisão para 
 - **Recomendação a clientes finais** (atividade regulada — Resolução CVM 39/2021).
 - **Decisão de crédito ou seguro** com base na previsão.
 - **Ativos de baixa liquidez** (small caps com histórico curto).
-- **Janelas com poucos pontos** — [train.py:128-130](src/models/train.py#L128-L130) lança `ValueError` mas a checagem mínima de qualidade é insuficiente para uso em produção.
+- **Janelas com poucos pontos** — [train.py:148-149](src/models/train.py#L148-L149) lança `ValueError` mas a checagem mínima de qualidade é insuficiente para uso em produção.
 
 ---
 
@@ -120,13 +121,15 @@ Fatores que afetam significativamente a performance e devem ser considerados em 
 ## 4. Métricas (Metrics)
 
 ### 4.1 Métricas de erro (já instrumentadas)
-| Métrica | Fórmula | Onde | Limiar de aprovação |
-|---------|---------|------|---------------------|
-| MAE | `mean(|y - ŷ|)` | [train.py:83](src/models/train.py#L83) | < MAE do baseline |
-| RMSE | `sqrt(mean((y - ŷ)²))` | [train.py:84](src/models/train.py#L84) | < RMSE do baseline |
-| MAPE | `mean(|(y - ŷ) / y|) × 100` | [train.py:85](src/models/train.py#L85) | < MAPE do baseline (e idealmente < 5%) |
+Calculadas em `avaliar_regressao` ([train.py:214-227](src/models/train.py#L214-L227)) e logadas no MLflow para baseline ([train.py:331-333](src/models/train.py#L331-L333)) e cada modelo.
 
-> Avaliação aplicada em escala original (após `inverse_transform`) — [train.py:80-81](src/models/train.py#L80-L81).
+| Métrica | Fórmula | Limiar de aprovação |
+|---------|---------|---------------------|
+| MAE | `mean(|y - ŷ|)` | < MAE do baseline |
+| RMSE | `sqrt(mean((y - ŷ)²))` | < RMSE do baseline |
+| MAPE | `mean(|(y - ŷ) / y|) × 100` | < MAPE do baseline (e idealmente < 5%) |
+
+> Avaliação aplicada em escala original (após `inverse_transform` em [train.py:215-216](src/models/train.py#L215-L216)).
 
 ### 4.2 Métricas planejadas
 | Métrica | Para que serve |
@@ -151,20 +154,21 @@ Qualquer modelo abaixo destes limiares **não** deve ser anunciado como "previso
 ## 5. Dados de treino (Training Data)
 
 ### 5.1 Fonte
-CSV histórico de cotações com no mínimo a coluna `Close` ([train.py:107-108](src/models/train.py#L107-L108)). Caminho via `--data-path` (default em [config/](config/)).
+CSV de features tratadas em `data/raw/stock_features.csv`, gerado automaticamente por [`ensure_features_dataset`](src/models/train.py#L52-L82) a partir de `data/raw/stock_data.csv` via [src/features/feature_engineering.py](src/features/feature_engineering.py).
 
 ### 5.2 Pré-processamento
-1. Leitura com fallback de cabeçalho multi-índice ([train.py:101-105](src/models/train.py#L101-L105)).
-2. `Close` convertido para numérico; linhas com NaN dropadas ([train.py:110-111](src/models/train.py#L110-L111)).
-3. Normalização `MinMaxScaler` em `[0, 1]` ([train.py:117-118](src/models/train.py#L117-L118)).
-4. Construção de janelas deslizantes de tamanho `janela_dias` → `(X, y)` ([train.py:120-127](src/models/train.py#L120-L127)).
+1. Geração de features (lags, retornos, indicadores técnicos) por `feature_engineering.py` — documentada em [src/features/ReadmeFeatureEngineering.md](src/features/ReadmeFeatureEngineering.md).
+2. Seleção de colunas de feature por `get_feature_columns` ([train.py:83](src/models/train.py#L83)).
+3. Carga via `carregar_dados_csv` ([train.py:99](src/models/train.py#L99)).
+4. Normalização do target via `MinMaxScaler` em `[0, 1]` ([train.py:173-174](src/models/train.py#L173-L174)).
+5. Construção de janelas deslizantes 3D `janela_dias × n_features` em `preparar_series_features` ([train.py:154-188](src/models/train.py#L154-L188)).
 
 ### 5.3 Split
-**Temporal** 80/20 — primeiros 80% no treino, últimos 20% no teste ([train.py:169-171](src/models/train.py#L169-L171)). Crítico para séries temporais; **não usar** split aleatório (data leakage).
+**Temporal** 80/20 — primeiros 80% no treino, últimos 20% no teste; tipo registrado como tag MLflow `split_type=temporal_80_20` ([train.py:317](src/models/train.py#L317)). Crítico para séries temporais; **não usar** split aleatório (data leakage).
 
 ### 5.4 Características conhecidas
-- **Univariada.** Apenas `Close` é usado. Volume, abertura, mínimas, máximas, fundamentos: ignorados.
-- **Sem features exógenas.** Macroeconomia, calendário (dia da semana, fim de mês), eventos: ausentes.
+- **Multivariada.** Features engenheiradas via `feature_engineering.py` — `Close`, lags, retornos e indicadores técnicos.
+- **Sem features exógenas externas.** Macroeconomia, calendário, notícias e eventos não são incorporados ao input do modelo (entram apenas via RAG).
 - **Sem augmentation.** Não há *bootstrapping* nem síntese de exemplos.
 
 ### 5.5 Distribuição
@@ -179,7 +183,7 @@ CSV histórico de cotações com no mínimo a coluna `Close` ([train.py:107-108]
 ## 6. Dados de avaliação (Evaluation Data)
 
 ### 6.1 Conjunto de teste
-Os últimos 20% da série, **mesma ordem temporal** do conjunto de treino. Garantido pelo split em [train.py:169-171](src/models/train.py#L169-L171).
+Os últimos 20% da série, **mesma ordem temporal** do conjunto de treino. Logado como `split_type=temporal_80_20` em [train.py:317](src/models/train.py#L317).
 
 ### 6.2 Limitação importante
 Como o conjunto de teste é uma janela contígua, ele representa **um único regime econômico**. Métricas de teste **não generalizam** para regimes diferentes. É necessário:
@@ -187,7 +191,7 @@ Como o conjunto de teste é uma janela contígua, ele representa **um único reg
 - Avaliação em períodos de *stress* (crise 2008, COVID-2020, ciclo Selic alta 2022-2024).
 
 ### 6.3 Conjunto de validação (LSTM apenas)
-O Keras usa `validation_data=(X_test_keras, y_test)` ([train.py:277](src/models/train.py#L277)) **como dado de validação**, o que é incorreto: o conjunto de teste é "vazado" para o `EarlyStopping`. Isso **infla a métrica reportada**.
+O Keras usa `validation_data` no `model.fit` em [train.py:412](src/models/train.py#L412) com o próprio conjunto de teste, o que **vaza informação para o `EarlyStopping`** e infla a métrica reportada.
 
 **Ação.** Refatorar para split treino / val / teste explícito (ex.: 70/10/20).
 
@@ -199,10 +203,11 @@ O Keras usa `validation_data=(X_test_keras, y_test)` ([train.py:277](src/models/
 Os valores numéricos são reportados em runtime via MLflow. Para inspecionar:
 
 ```bash
-mlflow ui --backend-store-uri sqlite:///mlflow/mlflow.db
+docker compose up mlflow
+# UI em http://localhost:5000
 ```
 
-Filtrar por experimento `previsao_acoes` e comparar `mae_baseline` / `mae_pytorch` / `mae_sklearn` / `mae_keras` (e equivalentes para RMSE, MAPE).
+Filtrar por experimento `previsao_acoes` e comparar `mae_baseline` / `mae_pytorch` / `mae_sklearn` / `mae_keras` (e equivalentes para RMSE, MAPE). As mesmas métricas são também ingeridas no índice RAG via [src/rag/mlflow_loader.py](src/rag/mlflow_loader.py) e expostas pelo endpoint `POST /ingest_mlflow`.
 
 ### 7.2 Performance desagregada
 **Não disponível.** A entregar conforme [docs/EXPLAINABILITY_FAIRNESS.md §5.3](docs/EXPLAINABILITY_FAIRNESS.md#53-métricas-a-instrumentar):
@@ -228,7 +233,7 @@ Em séries de fechamento diário com baixa volatilidade, é **comum** o baseline
 ### 8.1 Risco principal: confundir previsão estatística com recomendação
 O modelo produz um número (próximo fechamento). Sem disclaimer e contexto, um leitor pode interpretar como "compre/venda". Risco material.
 
-**Mitigação.** Disclaimer obrigatório (ver [docs/RED_TEAMING.md §RT-04](docs/RED_TEAMING.md#rt-04--manipulação-de-recomendação-financeira-pump--dump-assistido-por-ia)) e separação clara entre `prediction` (número), `confidence_interval`, e ausência de qualquer indicação de ação a tomar.
+**Mitigação.** Disclaimer obrigatório (ver [docs/RED_TEAM_REPORT.md §RT-02](docs/RED_TEAM_REPORT.md#rt-02--data-poisoning-via-ingest-ingest_mlflow-e-fetch_news)) e separação clara entre `prediction` (número), `confidence_interval`, e ausência de qualquer indicação de ação a tomar.
 
 ### 8.2 Risco de uso em populações para as quais o modelo não foi avaliado
 Modelo treinado em `--ticker` específico **não generaliza** para outros tickers. Avaliar antes de reutilizar.
@@ -273,7 +278,8 @@ Conforme critérios de sunset em [docs/SYSTEM_CARD.md §12.3](docs/SYSTEM_CARD.m
 
 | Versão | Data | Mudança | Observações |
 |--------|------|---------|-------------|
-| 1.0 | 2026-04-28 | Versão inicial do Model Card consolidado | Cobre PyTorch, Sklearn, Keras |
+| 1.0 | 2026-04-28 | Versão inicial do Model Card consolidado | Cobre PyTorch, Sklearn, Keras (univariado) |
+| 1.1 | 2026-05-03 | Atualização para pipeline multivariado | Reflete `feature_engineering.py`, novo layout de `train.py`, integração com `/ingest_mlflow` |
 
 ---
 
@@ -282,5 +288,6 @@ Conforme critérios de sunset em [docs/SYSTEM_CARD.md §12.3](docs/SYSTEM_CARD.m
 - [docs/SYSTEM_CARD.md](docs/SYSTEM_CARD.md) — System Card (visão holística)
 - [docs/EXPLAINABILITY_FAIRNESS.md](docs/EXPLAINABILITY_FAIRNESS.md) — Explicabilidade e fairness
 - [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md) — Conformidade LGPD
-- [docs/OWASP.md](docs/OWASP.md) / [docs/RED_TEAMING.md](docs/RED_TEAMING.md) — Segurança
+- [docs/OWASP.md](docs/OWASP.md) / [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md) — Segurança
+- [src/features/ReadmeFeatureEngineering.md](src/features/ReadmeFeatureEngineering.md) / [src/models/README_TRAIN_BASELINE.md](src/models/README_TRAIN_BASELINE.md) — Detalhes do pipeline
 - Mitchell et al., *[Model Cards for Model Reporting](https://arxiv.org/abs/1810.03993)*, 2019
