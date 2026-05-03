@@ -38,7 +38,12 @@ services:
       - mlruns_data:/app/mlruns # pasta de artifacts
       - huggingface_cache:/root/.cache/huggingface  # modelo HF cacheado entre rebuilds
     environment:
-      USE_BENTO_GENERATOR: "false"
+      USE_BENTO_GENERATOR: ${USE_BENTO_GENERATOR:-true}
+      REMOTE_LLM_MODE: ${REMOTE_LLM_MODE:-auto}
+      RAG_GENERATOR_URL: ${RAG_GENERATOR_URL:-http://localhost:3000/generate}
+      VLLM_BASE_URL: ${VLLM_BASE_URL:-}
+      VLLM_MODEL: ${VLLM_MODEL:-qwen2.5-0.5b-awq}
+      VLLM_API_KEY: ${VLLM_API_KEY:-}
       RAG_MODEL: google/flan-t5-base
       HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
     ports:

@@ -9,6 +9,10 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 # 🔹 Endereço do serviço Bento para geração de texto.
 # Ajuste com a variável de ambiente RAG_GENERATOR_URL, se necessário.
 BENTO_GENERATOR_URL = os.environ.get("RAG_GENERATOR_URL", "http://localhost:3000/generate")
+VLLM_BASE_URL = os.environ.get("VLLM_BASE_URL", "").strip()
+VLLM_MODEL = os.environ.get("VLLM_MODEL", "qwen2.5-0.5b-awq")
+VLLM_API_KEY = (os.environ.get("VLLM_API_KEY") or os.environ.get("OPENAI_API_KEY") or "").strip()
+REMOTE_LLM_MODE = os.environ.get("REMOTE_LLM_MODE", "auto").strip().lower()
 
 # 🔹 Modelo local para fallback (use variável RAG_MODEL para customizar)
 # Padrão: simulated (respostas perfeitas em português, sempre funciona)
@@ -72,6 +76,16 @@ def _build_seq2seq_generator(model_name):
             model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
 
     model.eval()
+
+    # Aplica quantização int8 dinâmica nas camadas Linear (CPU-compatible).
+    # Reduz uso de memória ~2x e pode acelerar inferência em CPU.
+    try:
+        model = torch.quantization.quantize_dynamic(
+            model, {torch.nn.Linear}, dtype=torch.qint8
+        )
+        print(f"[quantization] Modelo {model_name} quantizado com int8 dinâmico.")
+    except Exception as _qe:
+        print(f"[quantization] Aviso: quantização falhou ({_qe}); usando modelo sem quantização.")
 
     def _run(prompt, max_new_tokens=256, num_return_sequences=1, **kwargs):
         inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
@@ -157,6 +171,73 @@ def _call_bento_generator(query, context, timeout=15):
     if not answer:
         raise ValueError("Resposta vazia recebida do serviço Bento.")
     return answer.strip()
+
+
+def _build_vllm_chat_url() -> str:
+    base = VLLM_BASE_URL.rstrip("/")
+    if not base:
+        raise ValueError("VLLM_BASE_URL não configurado.")
+    if base.endswith("/v1"):
+        return f"{base}/chat/completions"
+    if base.endswith("/chat/completions"):
+        return base
+    return f"{base}/v1/chat/completions"
+
+
+def _call_vllm_openai_compatible(query, context, timeout=25):
+    url = _build_vllm_chat_url()
+    headers = {"Content-Type": "application/json"}
+    if VLLM_API_KEY:
+        headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
+
+    payload = {
+        "model": VLLM_MODEL,
+        "temperature": 0.2,
+        "max_tokens": 220,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Você é um assistente financeiro em português do Brasil. "
+                    "Responda de forma objetiva e apenas com base no contexto fornecido."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Pergunta: {query}\n\nContexto:\n{context}",
+            },
+        ],
+    }
+
+    response = requests.post(url, json=payload, headers=headers, timeout=timeout)
+    response.raise_for_status()
+    data = response.json()
+    choices = data.get("choices") or []
+    if not choices:
+        raise ValueError("Resposta vazia recebida do vLLM.")
+    message = choices[0].get("message") or {}
+    answer = (message.get("content") or "").strip()
+    if not answer:
+        raise ValueError("Campo choices[0].message.content vazio no vLLM.")
+    return answer
+
+
+def _call_remote_generator(query, context):
+    mode = REMOTE_LLM_MODE or "auto"
+
+    if mode == "vllm":
+        return _call_vllm_openai_compatible(query, context)
+
+    if mode == "bento":
+        return _call_bento_generator(query, context)
+
+    if VLLM_BASE_URL:
+        try:
+            return _call_vllm_openai_compatible(query, context)
+        except Exception as exc:
+            print(f"Falha no vLLM remoto: {exc}. Tentando endpoint /generate...")
+
+    return _call_bento_generator(query, context)
 
 
 def _clean_generated_answer(answer):
@@ -405,9 +486,9 @@ def generate_answer(query, context, max_new_tokens=256):
     """
     if os.environ.get("USE_BENTO_GENERATOR", "true").lower() in ("1", "true", "yes"):
         try:
-            return _call_bento_generator(query, context)
+            return _call_remote_generator(query, context)
         except Exception as exc:
-            print(f"Falha ao chamar Bento generator: {exc}. Usando fallback local.")
+            print(f"Falha ao chamar gerador remoto: {exc}. Usando fallback local.")
 
     # Caminho rápido para perguntas de métricas/modelo sem depender do LLM.
     context = _fix_mojibake(context)
