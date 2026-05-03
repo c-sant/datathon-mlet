@@ -299,5 +299,39 @@ def agent_rag(payload: AgentRequest):
             ],
         }
 
-    result = run_agent(payload.query, top_k=payload.top_k)
+    try:
+        result = run_agent(payload.query, top_k=payload.top_k)
+    except Exception as exc:
+        fast = _query_with_rag(payload.query, payload.top_k)
+        return {
+            "query": payload.query,
+            "answer": fast["answer"],
+            "trace": [
+                {
+                    "step": 1,
+                    "thought": "Execução ReAct falhou; aplicado fallback resiliente via RAG direto.",
+                    "action": "query_rag_exception_fallback",
+                    "action_input": {"top_k": payload.top_k},
+                    "observation": f"Erro original do agente: {type(exc).__name__}",
+                }
+            ],
+        }
+
+    # Detecta resposta vazia/template gerada quando o FLAN não consegue seguir
+    # o formato ReAct — fallback para caminho RAG direto com contexto real.
+    answer = (result.get("answer") or "").strip()
+    _bad = {"reposta objetiva:", "resposta objetiva:", "reposta objetiva", "resposta objetiva", ""}
+    if answer.lower().rstrip(":").strip() in _bad or answer.lower().startswith("reposta objetiv"):
+        fast = _query_with_rag(payload.query, payload.top_k)
+        result["answer"] = fast["answer"]
+        result.setdefault("trace", []).append(
+            {
+                "step": len(result.get("trace", [])) + 1,
+                "thought": "Resposta do agente era inválida; aplicado fallback via RAG direto.",
+                "action": "query_rag_fallback",
+                "action_input": {"top_k": payload.top_k},
+                "observation": "Resposta substituída pelo caminho analítico/RAG.",
+            }
+        )
+
     return result

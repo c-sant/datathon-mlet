@@ -280,6 +280,23 @@ def _answer_model_metrics_query(query, context):
 
     metrics = _parse_metrics_from_context(context)
     if not metrics:
+        # Fallback: lê metrics.json diretamente do disco
+        try:
+            import json
+            from pathlib import Path as _Path
+            _app_dir = _Path("/app") if _Path("/app").is_dir() else _Path.cwd()
+            _metrics_path = _app_dir / "reports" / "metrics.json"
+            if _metrics_path.exists():
+                _raw = json.loads(_metrics_path.read_text(encoding="utf-8"))
+                for _mname, _vals in _raw.items():
+                    metrics[_mname.lower()] = {
+                        k: float(v) for k, v in _vals.items()
+                        if isinstance(v, (int, float))
+                    }
+        except Exception:
+            pass
+
+    if not metrics:
         # Se não tem métricas mas é pergunta genérica de modelo, tenta params
         if is_model_q:
             params = _parse_hyperparams_from_context(context)
@@ -294,6 +311,12 @@ def _answer_model_metrics_query(query, context):
                 if "batch" in params:
                     parts.append(f"Batch size: {params['batch']}")
                 return "Configuração de treino registrada: " + " | ".join(parts) + "." if parts else None
+        # Pergunta explícita de métrica sem dados disponíveis
+        if is_metric_q:
+            return (
+                "Métricas do modelo não encontradas no índice. "
+                "Execute POST /ingest_mlflow para indexar os resultados do pipeline de treino."
+            )
         return None
 
     # ── Determina a métrica alvo ──────────────────────────────────────────────
