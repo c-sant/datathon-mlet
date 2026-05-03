@@ -6,7 +6,7 @@ services:
     container_name: datathon-mlet
     working_dir: /app
     volumes:
-      - mlflow_db:/app/mlflow   # pasta que contém mlflow.db
+      - mlflow_db:/app/mlflow # pasta que contém mlflow.db
       - mlruns_data:/app/mlruns # pasta de artifacts
     command: dvc repro
 
@@ -17,7 +17,7 @@ services:
     container_name: datathon-mlflow-ui
     working_dir: /app
     volumes:
-      - mlflow_db:/app/mlflow   # pasta que contém mlflow.db
+      - mlflow_db:/app/mlflow # pasta que contém mlflow.db
       - mlruns_data:/app/mlruns # pasta de artifacts
     ports:
       - "5000:5000"
@@ -34,7 +34,7 @@ services:
     container_name: datathon-mlet-api
     working_dir: /app
     volumes:
-      - mlflow_db:/app/mlflow   # pasta que contém mlflow.db
+      - mlflow_db:/app/mlflow # pasta que contém mlflow.db
       - mlruns_data:/app/mlruns # pasta de artifacts
       - huggingface_cache:/root/.cache/huggingface  # modelo HF cacheado entre rebuilds
     environment:
@@ -54,8 +54,119 @@ services:
     volumes:
       - .:/app
     command: pytest -v
+  # RAG Application (FastAPI + agente financeiro)
+  rag-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datathon-rag-app
+    ports:
+      - "8000:8000" # FastAPI endpoint
+      - "8001:8001" # Prometheus metrics endpoint
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      - LANGFUSE_HOST=http://langfuse:3000
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - PROMETHEUS_METRICS_PORT=8001
+    volumes:
+      - ./data:/app/data
+      - ./configs:/app/configs
+    depends_on:
+      - prometheus
+      - langfuse
+    networks:
+      - datathon-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  #Prometheus
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: datathon-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.enable-lifecycle"
+      - "--web.enable-admin-api"
+    networks:
+      - datathon-net
+    restart: unless-stopped
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: datathon-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-datathon2024}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - datathon-net
+    restart: unless-stopped
+
+  #Langfuse (LLM Observability)
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: datathon-langfuse
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${LANGFUSE_NEXTAUTH_SECRET:-datathon-secret-key-32chars}
+      - SALT=${LANGFUSE_SALT:-datathon-salt-key-32chars-here}
+      - TELEMETRY_ENABLED=false
+    depends_on:
+      langfuse-db:
+        condition: service_healthy
+    networks:
+      - datathon-net
+    restart: unless-stopped
+
+  langfuse-db:
+    image: postgres:15-alpine
+    container_name: datathon-langfuse-db
+    environment:
+      - POSTGRES_USER=langfuse
+      - POSTGRES_PASSWORD=langfuse
+      - POSTGRES_DB=langfuse
+    volumes:
+      - langfuse_db_data:/var/lib/postgresql/data
+    networks:
+      - datathon-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U langfuse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
+  prometheus_data:
+  grafana_data:
+  langfuse_db_data:
   mlflow_db:
   mlruns_data:
   huggingface_cache:  # cache do modelo HF — evita download a cada rebuild
