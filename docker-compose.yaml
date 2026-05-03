@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: datathon-mlet
     working_dir: /app
     volumes:
       - mlflow_db:/app/mlflow # pasta que contém mlflow.db
@@ -15,6 +16,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: datathon-mlflow-ui
     working_dir: /app
     volumes:
       - mlflow_db:/app/mlflow # pasta que contém mlflow.db
@@ -32,11 +34,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: datathon-mlet-api
     working_dir: /app
     volumes:
       - mlflow_db:/app/mlflow # pasta que contém mlflow.db
       - mlruns_data:/app/mlruns # pasta de artifacts
-      - huggingface_cache:/root/.cache/huggingface  # modelo HF cacheado entre rebuilds
+      - huggingface_cache:/root/.cache/huggingface # modelo HF cacheado entre rebuilds
     environment:
       USE_BENTO_GENERATOR: ${USE_BENTO_GENERATOR:-true}
       REMOTE_LLM_MODE: ${REMOTE_LLM_MODE:-auto}
@@ -54,6 +57,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.test
+    container_name: datathon-mlet-test
     working_dir: /app
     volumes:
       - .:/app
@@ -63,14 +67,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: datathon-rag-app
     ports:
       - "8002:8000" # FastAPI endpoint
       - "8001:8001" # Prometheus metrics endpoint
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
-      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      # - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY}
+      # - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY}
       - LANGFUSE_HOST=http://langfuse:3000
       - MLFLOW_TRACKING_URI=http://mlflow:5000
       - PROMETHEUS_METRICS_PORT=8001
@@ -80,8 +85,8 @@ services:
     depends_on:
       - prometheus
       - langfuse
-    networks:
-      - datathon-net
+    # networks:
+    #   - datathon-net
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -91,6 +96,7 @@ services:
   #Prometheus
   prometheus:
     image: prom/prometheus:v2.51.0
+    container_name: datathon-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -102,13 +108,14 @@ services:
       - "--storage.tsdb.retention.time=30d"
       - "--web.enable-lifecycle"
       - "--web.enable-admin-api"
-    networks:
-      - datathon-net
+    # networks:
+    #   - datathon-net
     restart: unless-stopped
 
   # Grafana
   grafana:
     image: grafana/grafana:10.3.1
+    container_name: datathon-grafana
     ports:
       - "3001:3000"
     environment:
@@ -123,13 +130,14 @@ services:
       - ./configs/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
-    networks:
-      - datathon-net
+    # networks:
+    #   - datathon-net
     restart: unless-stopped
 
   #Langfuse (LLM Observability)
   langfuse:
     image: langfuse/langfuse:2
+    container_name: datathon-langfuse
     ports:
       - "3000:3000"
     environment:
@@ -141,20 +149,21 @@ services:
     depends_on:
       langfuse-db:
         condition: service_healthy
-    networks:
-      - datathon-net
+    # networks:
+    #   - datathon-net
     restart: unless-stopped
 
   langfuse-db:
     image: postgres:15-alpine
+    container_name: datathon-langfuse-db
     environment:
       - POSTGRES_USER=langfuse
       - POSTGRES_PASSWORD=langfuse
       - POSTGRES_DB=langfuse
     volumes:
       - langfuse_db_data:/var/lib/postgresql/data
-    networks:
-      - datathon-net
+    # networks:
+    #   - datathon-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U langfuse"]
       interval: 10s
@@ -173,7 +182,7 @@ volumes:
     name: datathon-grupo-05_mlflow_db
   mlruns_data:
     name: datathon-grupo-05_mlruns_data
-  huggingface_cache:  # cache do modelo HF — evita download a cada rebuild
+  huggingface_cache: # cache do modelo HF — evita download a cada rebuild
     name: datathon-grupo-05_huggingface_cache
 
 networks:
