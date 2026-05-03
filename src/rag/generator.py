@@ -604,7 +604,60 @@ def _generate_simulated_answer(query, context):
 
 
 def generate_text(prompt, max_new_tokens=128, temperature=0.7):
-    """Gera texto bruto a partir de um prompt usando o gerador local."""
+    """Gera texto bruto a partir de um prompt usando o gerador local ou remoto."""
+    import sys
+    # Lê variáveis de ambiente em tempo de execução (não apenas no import)
+    vllm_base_url = os.environ.get("VLLM_BASE_URL", "").strip()
+    vllm_model = os.environ.get("VLLM_MODEL", "qwen2.5-0.5b-awq")
+    vllm_api_key = (os.environ.get("VLLM_API_KEY") or os.environ.get("OPENAI_API_KEY") or "").strip()
+    remote_llm_mode = os.environ.get("REMOTE_LLM_MODE", "auto").strip().lower()
+    
+    msg = f"[TRACE] generate_text called: mode={remote_llm_mode}, has_url={bool(vllm_base_url)}"
+    print(msg, file=sys.stderr)
+    sys.stderr.flush()
+    
+    # Tenta usar vLLM remoto se configurado
+    if remote_llm_mode == "vllm" and vllm_base_url:
+        try:
+            err_msg = f"[TRACE] Attempting vLLM call to {vllm_base_url}"
+            print(err_msg, file=sys.stderr)
+            sys.stderr.flush()
+            
+            url = f"{vllm_base_url}/v1/chat/completions"
+            headers = {"Authorization": f"Bearer {vllm_api_key}"} if vllm_api_key else {}
+            payload = {
+                "model": vllm_model or "default",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+                "max_tokens": max_new_tokens,
+                "temperature": temperature,
+            }
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            choices = data.get("choices") or []
+            if choices:
+                message = choices[0].get("message") or {}
+                answer = (message.get("content") or "").strip()
+                if answer:
+                    success_msg = f"[TRACE] vLLM success, returning answer"
+                    print(success_msg, file=sys.stderr)
+                    sys.stderr.flush()
+                    return answer
+        except Exception as e:
+            err = f"[TRACE] vLLM error: {e}"
+            print(err, file=sys.stderr)
+            sys.stderr.flush()
+    
+    # Fallback: usa o gerador local
+    fallback_msg = f"[TRACE] Using local generator fallback"
+    print(fallback_msg, file=sys.stderr)
+    sys.stderr.flush()
+    
     generator = _get_generator()
     if generator is None:
         return "Final Answer: Não foi possível carregar um modelo de geração local."

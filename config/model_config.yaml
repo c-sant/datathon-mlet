@@ -98,10 +98,10 @@ llm:
 # Agente ReAct
 # -----------------------------------------------------------------------------
 agent:
-  max_steps: 1             # Máximo de ciclos Thought→Action→Observation
+  max_steps: 2             # Máximo de ciclos Thought→Action→Observation
   top_k: 3                 # top_k repassado à tool search_documents
   inference:
-    max_new_tokens: 96     # Tokens gerados por chamada do agente
+    max_new_tokens: 140    # Tokens gerados por chamada do agente
     temperature: 0.5       # Temperatura mais baixa = respostas mais focadas
   tool_summarize:
     max_new_tokens: 128

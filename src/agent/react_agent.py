@@ -25,19 +25,19 @@ def _parse_agent_output(text: str) -> dict[str, Any]:
     action_input = None
     final_answer = None
 
-    thought_match = re.search(r"Thought:\s*(.*?)(?:\nAction:|\nFinal Answer:|$)", text, re.S)
+    thought_match = re.search(r"(?:Thought|Pensamento):\s*(.*?)(?:\n(?:Action|Ação|Acao):|\n(?:Final Answer|Resposta Final):|$)", text, re.S | re.IGNORECASE)
     if thought_match:
         thought = thought_match.group(1).strip()
 
-    action_match = re.search(r"Action:\s*([A-Za-z0-9_]+)", text)
+    action_match = re.search(r"(?:Action|Ação|Acao):\s*([A-Za-z0-9_]+)", text, re.IGNORECASE)
     if action_match:
         action = action_match.group(1).strip()
 
-    input_match = re.search(r"Action Input:\s*(.*?)(?:\nThought:|\nFinal Answer:|$)", text, re.S)
+    input_match = re.search(r"(?:Action Input|Entrada|Parâmetros):\s*(.*?)(?:\n(?:Thought|Pensamento):|\n(?:Final Answer|Resposta Final):|$)", text, re.S | re.IGNORECASE)
     if input_match:
         action_input = input_match.group(1).strip()
 
-    final_match = re.search(r"Final Answer:\s*(.*)", text, re.S)
+    final_match = re.search(r"(?:Final Answer|Resposta Final):\s*(.*)", text, re.S | re.IGNORECASE)
     if final_match:
         final_answer = final_match.group(1).strip()
 
@@ -58,16 +58,23 @@ def _parse_agent_output(text: str) -> dict[str, Any]:
 
 def _build_agent_prompt(query: str, history: list[dict[str, Any]], observation: str) -> str:
     prompt = (
-        "Você é um agente ReAct especializado em finanças e mercado financeiro. Use apenas as ferramentas listadas abaixo para responder. "
-        "Se o usuário fizer uma pergunta sobre investimentos, análise de mercado, notícias financeiras ou resumo de contexto, escolha a ferramenta apropriada.\n\n"
+        "Você é um agente ReAct de finanças. Responda SEMPRE no formato exato abaixo, sem exceção.\n\n"
         "Ferramentas disponíveis:\n"
         f"{_format_tool_descriptions()}\n\n"
-        "Formato de resposta esperado:\n"
-        "Thought: <seu raciocínio aqui>\n"
-        "Action: <nome_da_ferramenta>\n"
-        "Action Input: <entrada_em_JSON_ou_texto>\n\n"
-        "Se você já tem informação suficiente para responder de forma final, responda apenas com:\n"
-        "Final Answer: <resposta em português>\n\n"
+        "REGRAS OBRIGATÓRIAS:\n"
+        "1. Sempre comece com 'Thought:' seguido do seu raciocínio\n"
+        "2. Se precisar de informações, use 'Action:' com o nome exato da ferramenta\n"
+        "3. Use 'Action Input:' com os parâmetros em JSON\n"
+        "4. Quando tiver a resposta final, use 'Final Answer:'\n"
+        "5. NÃO traduza os labels - use SEMPRE em inglês: Thought:, Action:, Action Input:, Final Answer:\n\n"
+        "EXEMPLO DE FORMATO CORRETO:\n"
+        "Thought: Preciso buscar dados sobre a ação no índice de documentos.\n"
+        "Action: search_documents\n"
+        'Action Input: {"query": "ITUB4 valor preço 2026"}\n'
+        "Observation: [resultado da busca]\n"
+        "Thought: Com base nos documentos encontrados, posso responder.\n"
+        'Final Answer: Com base nos dados, ITUB4 está sendo negociada a R$34,50.\n\n'
+        "Agora responda a pergunta do usuário usando exatamente esse formato.\n\n"
     )
 
     if history:
