@@ -3,7 +3,7 @@ import re
 from typing import Any
 
 from agent.tools import TOOL_MAP, TOOLS
-from rag.embedding import all_chunks, index
+import rag.embedding as _emb
 from rag.generator import generate_answer, generate_text
 from utils.config_loader import load_config
 
@@ -100,7 +100,7 @@ def run_agent(
     history = []
     observation = ""
 
-    if index is None or len(all_chunks) == 0:
+    if _emb.index is None or len(_emb.all_chunks) == 0:
         observation = "O índice de busca está vazio ou indisponível."
 
     for step in range(max_steps):

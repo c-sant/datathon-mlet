@@ -2,7 +2,8 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from rag.data_loader import load_news
-from rag.embedding import all_chunks, embedder, index, ingest_documents, metadata
+import rag.embedding as _emb
+from rag.embedding import ingest_documents
 from rag.generator import generate_text
 from rag.retriever import retrieve
 from utils.config_loader import load_config
@@ -31,7 +32,7 @@ def _format_search_results(results: list[dict]) -> str:
 
 
 def tool_search_documents(input_data: Any) -> str:
-    if index is None or len(all_chunks) == 0:
+    if _emb.index is None or len(_emb.all_chunks) == 0:
         return "O índice de busca não está disponível. Execute uma ingestão antes de usar esta ferramenta."
 
     if isinstance(input_data, str):
@@ -48,7 +49,7 @@ def tool_search_documents(input_data: Any) -> str:
     if not query:
         return "A ferramenta search_documents requer o campo query."
 
-    results = retrieve(query, embedder, index, all_chunks, metadata, top_k=top_k)
+    results = retrieve(query, _emb.embedder, _emb.index, _emb.all_chunks, _emb.metadata, top_k=top_k)
     return _format_search_results(results)
 
 

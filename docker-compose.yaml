@@ -36,6 +36,11 @@ services:
     volumes:
       - mlflow_db:/app/mlflow   # pasta que contém mlflow.db
       - mlruns_data:/app/mlruns # pasta de artifacts
+      - huggingface_cache:/root/.cache/huggingface  # modelo HF cacheado entre rebuilds
+    environment:
+      USE_BENTO_GENERATOR: "false"
+      RAG_MODEL: google/flan-t5-base
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
     ports:
       - "8000:8000"
     command: uvicorn src.serving.app:app --host "0.0.0.0" --port 8000
@@ -53,3 +58,4 @@ services:
 volumes:
   mlflow_db:
   mlruns_data:
+  huggingface_cache:  # cache do modelo HF — evita download a cada rebuild
