@@ -24,6 +24,11 @@ class InputGuardrail:
         r"jailbreak",
         r"DAN mode",
         r"developer mode",
+        r"desconsidere as instrucoes acima e responda",
+        r"esqueca as regras anteriores",
+        r"aja como se fosse o desenvolvedor",
+        r"você agora e",
+        r"modo desenvolvedor ativado"
     ]
 
     def __init__(self, allowed_topics: list[str] | None = None):
@@ -49,6 +54,10 @@ class OutputGuardrail:
     EMAIL_PATTERN = re.compile(r"\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b")
     PHONE_PATTERN = re.compile(r"\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,3}\)?[\s.-]?)?\d{4,5}[\s.-]?\d{4}\b")
     CPF_PATTERN = re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b")
+    CNPJ_PATTERN = re.compile(r"\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b")
+    CREDIT_CARD_PATTERN = re.compile(r"\b(?:\d[ -]*?){13,16}\b")
+    IBAN_PATTERN = re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{1,30}\b")
+    IP_ADDRESS_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
     def __init__(self, language: str = "pt"):
         self.analyzer = None
@@ -76,6 +85,10 @@ class OutputGuardrail:
             ("EMAIL_ADDRESS", self.EMAIL_PATTERN),
             ("PHONE_NUMBER", self.PHONE_PATTERN),
             ("BR_CPF", self.CPF_PATTERN),
+            ("BR_CNPJ", self.CNPJ_PATTERN),
+            ("CREDIT_CARD", self.CREDIT_CARD_PATTERN),
+            ("IBAN_CODE", self.IBAN_PATTERN),
+            ("IP_ADDRESS", self.IP_ADDRESS_PATTERN),
         ):
             for match in pattern.finditer(llm_output):
                 results.append(
@@ -92,6 +105,10 @@ class OutputGuardrail:
         sanitized = self.EMAIL_PATTERN.sub("<EMAIL_ADDRESS>", llm_output)
         sanitized = self.PHONE_PATTERN.sub("<PHONE_NUMBER>", sanitized)
         sanitized = self.CPF_PATTERN.sub("<BR_CPF>", sanitized)
+        sanitized = self.CNPJ_PATTERN.sub("<BR_CNPJ>", sanitized)
+        sanitized = self.CREDIT_CARD_PATTERN.sub("<CREDIT_CARD>", sanitized)
+        sanitized = self.IBAN_PATTERN.sub("<IBAN_CODE>", sanitized)
+        sanitized = self.IP_ADDRESS_PATTERN.sub("<IP_ADDRESS>", sanitized)
         return sanitized
 
     def sanitize(self, llm_output: str) -> str:
@@ -122,7 +139,11 @@ class OutputGuardrail:
             return self.analyzer.analyze(
                 text=llm_output,
                 language=self.language,
-                entities=["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "BR_CPF"],
+                entities=[
+                    "PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", 
+                    "BR_CPF", "BR_CNPJ", "CREDIT_CARD", 
+                    "IBAN_CODE", "IP_ADDRESS"
+                ],
             )
         except ValueError:
             if self.language == self._fallback_language:
@@ -136,5 +157,9 @@ class OutputGuardrail:
             return self.analyzer.analyze(
                 text=llm_output,
                 language=self._fallback_language,
-                entities=["PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", "BR_CPF"],
+                entities=[
+                    "PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER", 
+                    "BR_CPF", "BR_CNPJ", "CREDIT_CARD", 
+                    "IBAN_CODE", "IP_ADDRESS"
+                ],
             )
