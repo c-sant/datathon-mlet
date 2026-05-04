@@ -1,6 +1,6 @@
 # Model Card — Modelos Preditivos de Preço de Fechamento
 
-Model Card no padrão **Mitchell et al. (2019)** — *Model Cards for Model Reporting*, adaptado ao caso real do projeto **Datathon MLET / Grupo 05**.
+Model Card no padrão **Mitchell et al. (2019)** — *Model Cards for Model Reporting*, adaptado ao caso real do projeto **Datathon MLET**.
 
 Cobre os **três modelos de regressão** treinados pelo pipeline em [src/models/train.py](src/models/train.py), todos resolvendo a mesma tarefa com a mesma representação de entrada (justifica um Model Card consolidado em vez de três documentos separados):
 
@@ -11,7 +11,7 @@ Cobre os **três modelos de regressão** treinados pelo pipeline em [src/models/
 | `LSTM` | Keras / TensorFlow | `modelo_{ticker}.keras` | [train.py:384-428](src/models/train.py#L384-L428) |
 | `Baseline` (naïve persistence) | — | computado em runtime | [`criar_baseline_naive`](src/models/train.py#L229-L250), [src/models/baseline.py](src/models/baseline.py) |
 
-> **Versão deste card.** v1.1 — 2026-05-03
+> **Versão deste card.** v1.2 — 2026-05-03
 > **Tracking.** MLflow em `mlflow/mlflow.db` (UI em `:5000` via [docker-compose.yaml:15-30](docker-compose.yaml#L15-L30)), experimento `previsao_acoes`.
 > **Pipeline reprodutível.** [dvc.yaml](dvc.yaml) + [params.yaml](params.yaml).
 
@@ -20,11 +20,11 @@ Cobre os **três modelos de regressão** treinados pelo pipeline em [src/models/
 ## 1. Detalhes do modelo (Model Details)
 
 ### 1.1 Pessoa / organização desenvolvedora
-**Grupo 05 — FIAP MLET, Fase Datathon.** Documento sob revisão do Encarregado LGPD a designar (ver [docs/LGPD_PLAN.md §8](docs/LGPD_PLAN.md#8-encarregado-dpo--art-41)).
+**FIAP MLET, Fase Datathon.** Documento sob revisão do Encarregado LGPD a designar (ver [docs/LGPD_PLAN.md §8](docs/LGPD_PLAN.md#8-encarregado-dpo--art-41)).
 
 ### 1.2 Data
 - **Treino mais recente.** Definida pelo `run_id` MLflow ativo (consultar `mlflow ui`).
-- **Versão deste card.** v1.1 — 2026-05-03.
+- **Versão deste card.** v1.2 — 2026-05-03.
 
 ### 1.3 Tipo
 - **Tarefa.** Regressão sobre série temporal **multivariada** (ver [src/features/feature_engineering.py](src/features/feature_engineering.py)).
@@ -239,7 +239,7 @@ O modelo produz um número (próximo fechamento). Sem disclaimer e contexto, um 
 Modelo treinado em `--ticker` específico **não generaliza** para outros tickers. Avaliar antes de reutilizar.
 
 ### 8.3 Dados sensíveis
-**Não há dados pessoais** nos dados de treino (apenas séries de preço). O modelo final em si não é dado pessoal.
+**Não há dados pessoais** nos dados de treino (apenas séries de preço). O modelo final em si não é dado pessoal. Como defesa adicional para o caminho de inferência, qualquer PII presente em contexto recuperado pelo RAG é mascarado pelo `OutputGuardrail` ([src/security/guardrails.py:51-165](src/security/guardrails.py#L51-L165)) aplicado recursivamente sobre as respostas em `_sanitize_public_value` ([src/serving/app.py:92-104](src/serving/app.py#L92-L104)) — cobre `PERSON`, `EMAIL_ADDRESS`, `PHONE_NUMBER`, `BR_CPF`, `BR_CNPJ`, `CREDIT_CARD`, `IBAN_CODE`, `IP_ADDRESS`, com fallback regex local quando o Presidio não inicializa.
 
 ### 8.4 Decisões automatizadas (LGPD Art. 20)
 Caso a saída do modelo venha a ser usada para **decidir algo sobre uma pessoa** (ex.: aprovar limite, sugerir investimento personalizado), o titular tem direito à revisão humana. Implementação prevista em [docs/LGPD_PLAN.md §5](docs/LGPD_PLAN.md#5-direitos-dos-titulares-art-18--como-atender).
@@ -280,6 +280,7 @@ Conforme critérios de sunset em [docs/SYSTEM_CARD.md §12.3](docs/SYSTEM_CARD.m
 |--------|------|---------|-------------|
 | 1.0 | 2026-04-28 | Versão inicial do Model Card consolidado | Cobre PyTorch, Sklearn, Keras (univariado) |
 | 1.1 | 2026-05-03 | Atualização para pipeline multivariado | Reflete `feature_engineering.py`, novo layout de `train.py`, integração com `/ingest_mlflow` |
+| 1.2 | 2026-05-03 | Integração de guardrails no caminho de inferência | Sanitização recursiva de PII via `_sanitize_public_value` em [src/serving/app.py](src/serving/app.py); padrões adicionais no `OutputGuardrail` (CNPJ, CREDIT_CARD, IBAN, IP); referências de segurança redirecionadas para [docs/OWASP_MITIGATIONS.md](docs/OWASP_MITIGATIONS.md) |
 
 ---
 
@@ -288,6 +289,6 @@ Conforme critérios de sunset em [docs/SYSTEM_CARD.md §12.3](docs/SYSTEM_CARD.m
 - [docs/SYSTEM_CARD.md](docs/SYSTEM_CARD.md) — System Card (visão holística)
 - [docs/EXPLAINABILITY_FAIRNESS.md](docs/EXPLAINABILITY_FAIRNESS.md) — Explicabilidade e fairness
 - [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md) — Conformidade LGPD
-- [docs/OWASP.md](docs/OWASP.md) / [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md) — Segurança
+- [docs/OWASP_MITIGATIONS.md](docs/OWASP_MITIGATIONS.md) / [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md) — Segurança
 - [src/features/ReadmeFeatureEngineering.md](src/features/ReadmeFeatureEngineering.md) / [src/models/README_TRAIN_BASELINE.md](src/models/README_TRAIN_BASELINE.md) — Detalhes do pipeline
 - Mitchell et al., *[Model Cards for Model Reporting](https://arxiv.org/abs/1810.03993)*, 2019

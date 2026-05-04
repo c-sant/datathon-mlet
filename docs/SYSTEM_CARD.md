@@ -2,8 +2,8 @@
 
 Documento que descreve o **sistema completo** colocado em operação: o que faz, como funciona, em que contextos pode ser usado com responsabilidade e quais riscos foram avaliados. Inspirado em System Cards publicados por OpenAI e Anthropic e nas diretrizes do **NIST AI Risk Management Framework**.
 
-> **Status do documento.** v1.1 — 2026-05-03
-> **Versão do sistema descrita.** Branch `dev` (snapshot atual do repositório, com vLLM remoto em RunPod e stack de observabilidade Prometheus/Grafana/Langfuse).
+> **Status do documento.** v1.2 — 2026-05-03
+> **Versão do sistema descrita.** Branch `dev` (snapshot atual do repositório, com vLLM remoto em RunPod, stack de observabilidade Prometheus/Grafana/Langfuse, e guardrails de input/output integrados ao caminho de inferência).
 > **Dono do sistema.** Grupo 05 — FIAP MLET, Fase Datathon.
 > **Encarregado (DPO).** *A designar* — ver [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md#8-encarregado-dpo--art-41).
 
@@ -120,11 +120,13 @@ Detalhamento: [src/serving/app.py](src/serving/app.py), [src/agent/react_agent.p
 ### 5.1 API HTTP (FastAPI)
 | Atributo | Valor |
 |----------|-------|
-| Arquivo | [src/serving/app.py](src/serving/app.py) |
+| Arquivo | [src/serving/app.py](src/serving/app.py) (FastAPI; substitui o serviço BentoML legado) |
 | Endpoints | `POST /ingest`, `POST /ingest_mlflow`, `GET /query`, `POST /agent` |
 | Porta | `:8000` ([docker-compose.yaml:52-54](docker-compose.yaml#L52-L54)) |
-| Autenticação | **Nenhuma** (gap conhecido — ver [docs/OWASP.md §3.5](docs/OWASP.md#35-api12023--a052021--broken-access-control--security-misconfiguration)) |
-| CORS | `allow_origins=["*"]` + `allow_credentials=True` (gap — ver [docs/OWASP.md §3.5](docs/OWASP.md#35-api12023--a052021--broken-access-control--security-misconfiguration)) |
+| Autenticação | **Nenhuma** (gap conhecido) |
+| CORS | `allow_origins=["*"]` + `allow_credentials=True` (gap conhecido) |
+| Guardrail de entrada | `InputGuardrail` integrado em `_validate_user_query` ([app.py:80-89](src/serving/app.py#L80-L89)), aplicado em `/query` e `/agent`; `field_validator` no `Document.text` no fork [generator/serving/app.py:51-62](generator/serving/app.py#L51-L62) — ver [docs/OWASP_MITIGATIONS.md §1](docs/OWASP_MITIGATIONS.md#1-detecção-de-prompt-injection-na-entrada-do-usuário-llm012025) |
+| Guardrail de saída (PII) | `OutputGuardrail` aplicado recursivamente em `_sanitize_public_value` ([app.py:92-104](src/serving/app.py#L92-L104)) sobre todas as respostas (`context`, `answer`, `trace`) — ver [docs/OWASP_MITIGATIONS.md §2](docs/OWASP_MITIGATIONS.md#2-sanitização-de-pii-na-saída-do-llm-llm022025) |
 
 ### 5.2 Modelos preditivos
 Documentados em detalhe no [Model Card](docs/MODEL_CARD.md).
@@ -177,7 +179,7 @@ Documentados em detalhe no [Model Card](docs/MODEL_CARD.md).
 - **Pré-processamento.** `MinMaxScaler` no target em `preparar_series_features` ([train.py:154-188](src/models/train.py#L154-L188)).
 
 ### 6.2 Dados ingeridos no RAG
-- **Fonte primária.** Notícias carregadas via [src/rag/data_loader.py](src/rag/data_loader.py) (sem whitelist explícita — gap em [docs/OWASP.md §3.3](docs/OWASP.md#33-llm042025--data-and-model-poisoning)).
+- **Fonte primária.** Notícias carregadas via [src/rag/data_loader.py](src/rag/data_loader.py) (sem whitelist explícita — gap residual; mitigação parcial via validação Pydantic + sanitização do `Document.text` no fork — ver [docs/OWASP_MITIGATIONS.md §4](docs/OWASP_MITIGATIONS.md#4-validação-e-sanitização-na-ingestão-de-documentos-llm042025)).
 - **Fonte secundária.** Documentos enviados pelo cliente em `POST /ingest`.
 - **Fonte terciária.** Métricas e parâmetros de runs MLflow injetados via `POST /ingest_mlflow` ([src/rag/mlflow_loader.py](src/rag/mlflow_loader.py)).
 - **Persistência.** Apenas em memória do processo (FAISS in-memory). **Não há** banco persistente para o índice.
@@ -220,23 +222,23 @@ Métricas qualitativas:
 
 ## 8. Avaliação de segurança
 
-**Documento mestre.** [docs/OWASP.md](docs/OWASP.md) — 5 ameaças mapeadas com referência direta ao código.
-**Cenários de Red Team.** [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md) — 5 cenários executáveis com payloads `curl` reais, alinhados às 5 ameaças.
+**Documento mestre.** [docs/OWASP_MITIGATIONS.md](docs/OWASP_MITIGATIONS.md) — 5 mitigações concretas no código mapeadas ao OWASP Top 10 LLM (2025) e API Security Top 10 (2023).
+**Cenários de Red Team.** [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md) — cenários executáveis com payloads `curl` reais, alinhados às mesmas categorias.
 
 ### 8.1 Sumário do estado atual
 
-| Categoria | Status | Severidade |
-|-----------|--------|------------|
+| Categoria | Status | Severidade residual |
+|-----------|--------|---------------------|
 | Autenticação e autorização (API + observabilidade) | ❌ Ausente em todos os endpoints; Grafana com anonymous Viewer e senha default; Langfuse com `NEXTAUTH_SECRET`/`SALT` previsíveis | **Crítica** |
 | CORS | ❌ `*` + `credentials=True` | **Alta** |
-| Prompt injection (direta + indireta via `/ingest`, `/ingest_mlflow`, `fetch_news`) | ⚠️ Guardrail implementado mas **não integrado** em `app.py` | **Alta** |
-| Data/Model poisoning | ❌ `/ingest` e `/ingest_mlflow` públicos; `overwrite=True` por default | **Crítica** |
-| PII no output (e exfiltração para vLLM remoto) | ⚠️ Presidio implementado mas **não integrado**; prompt enviado integralmente à RunPod | **Alta** |
-| Excessive agency do agente | ⚠️ Mitigação parcial (TOOL_MAP fechado, `max_steps`); sem auditoria persistente | **Alta** |
+| Prompt injection (direta + indireta via `/ingest`, `/ingest_mlflow`, `fetch_news`) | ✅ `InputGuardrail` integrado em `_validate_user_query` ([app.py:80-89](src/serving/app.py#L80-L89)) cobrindo `/query` e `/agent`; `field_validator` no `Document.text` ([generator/serving/app.py:51-62](generator/serving/app.py#L51-L62)) bloqueia ingestão de payloads maliciosos | Média (residual: `fetch_news` não revalida texto remoto) |
+| Data/Model poisoning | ⚠️ `/ingest` e `/ingest_mlflow` ainda públicos e com `overwrite=True` default, mas conteúdo passa por validação + sanitização antes da indexação no fork de ingestão | **Alta** |
+| PII no output (e exfiltração para vLLM remoto) | ✅ `OutputGuardrail` aplicado recursivamente via `_sanitize_public_value` ([app.py:92-104](src/serving/app.py#L92-L104)) sobre `context`, `answer`, `trace`; padrões cobrem `PERSON`, `EMAIL`, `PHONE`, `BR_CPF`, `BR_CNPJ`, `CREDIT_CARD`, `IBAN`, `IP`. Residual: prompt ainda é enviado integralmente à RunPod antes da sanitização da resposta | Média |
+| Excessive agency do agente | ⚠️ Mitigação parcial (TOOL_MAP fechado, `max_steps`, fallback `rag_fast_path`/`rag_fallback` em [app.py:316-387](src/serving/app.py#L316-L387)); sem auditoria persistente | **Alta** |
 | Rate limiting / DoS / Custo | ❌ Ausente — cada chamada ao agente queima tokens da RunPod | Média |
 
 ### 8.2 Próximos passos
-Roadmap em [docs/OWASP.md §4](docs/OWASP.md#4-próximos-passos-sugeridos), priorizado P0 → P2.
+Gaps residuais (auth, CORS, rate limiting, whitelist de fontes em `fetch_news`) seguem como roadmap; controles já implementados estão consolidados em [docs/OWASP_MITIGATIONS.md](docs/OWASP_MITIGATIONS.md).
 
 ---
 
@@ -346,13 +348,14 @@ O sistema **deve** ser desativado se:
 |--------|------|---------|-------|
 | 1.0 | 2026-04-28 | Versão inicial do System Card | Grupo 05 |
 | 1.1 | 2026-05-03 | Atualização para refletir: vLLM remoto na RunPod (`VLLM_BASE_URL`), endpoint `/ingest_mlflow`, stack de observabilidade Prometheus/Grafana/Langfuse, modelos preditivos multivariados, OWASP consolidado em 5 ameaças | Grupo 05 |
+| 1.2 | 2026-05-03 | Migração da API de BentoML para FastAPI; integração de `InputGuardrail` (anti-prompt-injection) em `_validate_user_query` e de `OutputGuardrail` (PII via Presidio + fallback regex com `CNPJ`/`CREDIT_CARD`/`IBAN`/`IP`) em `_sanitize_public_value`; consolidação das mitigações em [docs/OWASP_MITIGATIONS.md](docs/OWASP_MITIGATIONS.md) (substitui o antigo `OWASP.md`); revisão das severidades residuais em §8.1 | Grupo 05 |
 
 ---
 
 ## Documentos relacionados
 
 - [docs/MODEL_CARD.md](docs/MODEL_CARD.md) — Model Card detalhado dos modelos preditivos
-- [docs/OWASP.md](docs/OWASP.md) — Mapeamento OWASP de ameaças
+- [docs/OWASP_MITIGATIONS.md](docs/OWASP_MITIGATIONS.md) — Mitigações OWASP implementadas no código
 - [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md) — Cenários de Red Teaming
 - [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md) — Plano de adequação à LGPD
 - [docs/EXPLAINABILITY_FAIRNESS.md](docs/EXPLAINABILITY_FAIRNESS.md) — Explicabilidade e Fairness
