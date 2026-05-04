@@ -6,6 +6,8 @@ import requests
 import torch
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer, pipeline
 
+from security.guardrails import OutputGuardrail
+
 # 🔹 Endereço do serviço Bento para geração de texto.
 # Ajuste com a variável de ambiente RAG_GENERATOR_URL, se necessário.
 BENTO_GENERATOR_URL = os.environ.get("RAG_GENERATOR_URL", "http://localhost:3000/generate")
@@ -251,7 +253,7 @@ def _clean_generated_answer(answer):
     # Compacta espaços e quebras de linha excessivas.
     text = re.sub(r"\n{3,}", "\n\n", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
-    return text.strip()
+    return OutputGuardrail().sanitize(text.strip())
 
 
 def _fix_mojibake(text):
