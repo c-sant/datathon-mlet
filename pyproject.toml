@@ -62,11 +62,6 @@ test = [
   "pandera>=0.20"
 ]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
-addopts = "-q"
-
 # -------------------------------
 # Packaging (src layout)
 # -------------------------------
