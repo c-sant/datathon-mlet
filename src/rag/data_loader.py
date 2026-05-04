@@ -3,29 +3,54 @@ from urllib.parse import urlparse
 
 import requests
 from bs4 import BeautifulSoup
+from utils.config_loader import load_config
+
+try:
+    import yfinance as yf
+except (ModuleNotFoundError, ImportError):
+    yf = None
 
 try:
     from newspaper import Article
 except (ModuleNotFoundError, ImportError):
     Article = None
 
-DEFAULT_URLS = [
-    "https://www.seudinheiro.com/mercados",
-    "https://einvestidor.estadao.com.br/mercado",
-    "https://www.infomoney.com.br/mercados/",
-]
+
+DEFAULT_URLS = []
 
 # Fontes adicionais por ticker para aumentar cobertura de mercado.
 DEFAULT_TICKERS = ["ITUB4", "PETR4", "VALE3", "BBAS3", "BBDC4"]
 
 
-def _ticker_urls(tickers):
-    tickers = [t.lower() for t in (tickers or DEFAULT_TICKERS)]
+def _load_ingestion_ticker_settings():
+    """Lê tickers e slugs do InfoMoney a partir da configuração de ingestão."""
+    try:
+        cfg = load_config()
+        ingestion_cfg = (cfg.get("rag") or {}).get("ingestion") or {}
+    except Exception:
+        ingestion_cfg = {}
+
+    tickers_cfg = ingestion_cfg.get("tickers") or []
+    slugs_cfg = ingestion_cfg.get("infomoney_company_slugs") or {}
+
+    tickers = [str(t).upper() for t in tickers_cfg if str(t).strip()]
+    slugs = {
+        str(k).upper(): str(v).strip().strip("/")
+        for k, v in slugs_cfg.items()
+        if str(k).strip() and str(v).strip()
+    }
+    return tickers, slugs
+
+
+def _ticker_urls(tickers, infomoney_company_slugs=None):
+    cfg_tickers, _ = _load_ingestion_ticker_settings()
+    tickers = [str(t).upper() for t in (tickers or cfg_tickers or DEFAULT_TICKERS)]
     urls = []
     for ticker in tickers:
+        ticker_lower = ticker.lower()
         urls.extend([
-            f"https://statusinvest.com.br/acoes/{ticker}",
-            f"https://www.infomoney.com.br/cotacoes/b3/acao/{ticker}/",
+            f"https://statusinvest.com.br/acoes/{ticker_lower}",
+            f"https://www.fundamentus.com.br/detalhes.php?papel={ticker.upper()}",
         ])
     return urls
 
@@ -83,14 +108,83 @@ def _doc_id(prefix, idx, url):
     return f"{prefix}_{idx}_{host}"
 
 
-def load_news(urls=None, tickers=None, include_ticker_pages=True):
+def _load_yfinance_docs(tickers):
+    """Gera documentos estruturados com dados fundamentalistas via yfinance."""
+    if yf is None:
+        return []
+
+    cfg_tickers, _ = _load_ingestion_ticker_settings()
+    tickers = [str(t).upper() for t in (tickers or cfg_tickers or DEFAULT_TICKERS)]
+
+    docs = []
+    for ticker in tickers:
+        # B3 tickers need .SA suffix for Yahoo Finance
+        yf_symbol = ticker if ticker.endswith(".SA") else f"{ticker}.SA"
+        try:
+            info = yf.Ticker(yf_symbol).info
+            if not info or info.get("regularMarketPrice") is None:
+                continue
+
+            fields = [
+                ("Empresa", info.get("longName") or info.get("shortName") or ticker),
+                ("Setor", info.get("sector") or ""),
+                ("Subsetor", info.get("industry") or ""),
+                ("Preço atual", info.get("regularMarketPrice")),
+                ("Variação dia (%)", info.get("regularMarketChangePercent")),
+                ("Abertura", info.get("regularMarketOpen")),
+                ("Máxima 52 semanas", info.get("fiftyTwoWeekHigh")),
+                ("Mínima 52 semanas", info.get("fiftyTwoWeekLow")),
+                ("Volume médio", info.get("averageVolume")),
+                ("Market Cap", info.get("marketCap")),
+                ("P/L", info.get("trailingPE")),
+                ("P/VP", info.get("priceToBook")),
+                ("EV/EBITDA", info.get("enterpriseToEbitda")),
+                ("Dividend Yield (%)", info.get("dividendYield")),
+                ("ROE (%)", info.get("returnOnEquity")),
+                ("ROA (%)", info.get("returnOnAssets")),
+                ("Margem líquida (%)", info.get("profitMargins")),
+                ("Receita (TTM)", info.get("totalRevenue")),
+                ("Lucro líquido (TTM)", info.get("netIncomeToCommon")),
+                ("Dívida bruta", info.get("totalDebt")),
+                ("Caixa", info.get("totalCash")),
+                ("Beta", info.get("beta")),
+                ("Recomendação analistas", info.get("recommendationKey")),
+                ("Preço-alvo médio", info.get("targetMeanPrice")),
+            ]
+
+            lines = [f"Dados fundamentalistas de {ticker} ({yf_symbol}) — Yahoo Finance"]
+            for label, val in fields:
+                if val is not None and val != "":
+                    if isinstance(val, float):
+                        lines.append(f"{label}: {val:.4f}")
+                    else:
+                        lines.append(f"{label}: {val}")
+
+            text = "\n".join(lines)
+            if len(text) < 80:
+                continue
+
+            docs.append({
+                "id": f"yfinance_{ticker.lower()}",
+                "title": f"{ticker} — Indicadores fundamentalistas",
+                "text": text,
+                "source_url": f"https://finance.yahoo.com/quote/{yf_symbol}",
+                "fetched_at": datetime.now(timezone.utc).isoformat(),
+            })
+        except Exception as e:
+            print(f"Aviso: yfinance falhou para {ticker}: {e}")
+
+    return docs
+
+
+def load_news(urls=None, tickers=None, include_ticker_pages=True, infomoney_company_slugs=None):
     """
     Carrega notícias financeiras a partir de URLs.
     Se nenhuma lista for passada, usa as URLs default + páginas por ticker.
     """
     urls_to_fetch = list(urls or DEFAULT_URLS)
     if include_ticker_pages:
-        urls_to_fetch.extend(_ticker_urls(tickers))
+        urls_to_fetch.extend(_ticker_urls(tickers, infomoney_company_slugs))
 
     # Remove duplicatas preservando ordem.
     seen_urls = set()
@@ -133,5 +227,9 @@ def load_news(urls=None, tickers=None, include_ticker_pages=True):
             "source_url": url,
             "fetched_at": datetime.now(timezone.utc).isoformat(),
         })
+
+    # Complementa com dados fundamentalistas via yfinance (sem scraping HTML)
+    if include_ticker_pages:
+        docs.extend(_load_yfinance_docs(tickers))
 
     return docs

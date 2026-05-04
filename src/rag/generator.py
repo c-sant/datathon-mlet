@@ -192,6 +192,10 @@ def _call_vllm_openai_compatible(query, context, timeout=25):
     if VLLM_API_KEY:
         headers["Authorization"] = f"Bearer {VLLM_API_KEY}"
 
+    # Truncate context to avoid exceeding max_model_len=1024 tokens.
+    # ~2000 chars ≈ 500 tokens; leaves room for system msg, query, and 220 output tokens.
+    context_truncated = context[:2000] + "..." if len(context) > 2000 else context
+
     payload = {
         "model": VLLM_MODEL,
         "temperature": 0.2,
@@ -206,7 +210,7 @@ def _call_vllm_openai_compatible(query, context, timeout=25):
             },
             {
                 "role": "user",
-                "content": f"Pergunta: {query}\n\nContexto:\n{context}",
+                "content": f"Pergunta: {query}\n\nContexto:\n{context_truncated}",
             },
         ],
     }
@@ -620,54 +624,70 @@ def generate_text(prompt, max_new_tokens=128, temperature=0.7):
     
     # Tenta usar vLLM remoto se configurado
     if remote_llm_mode == "vllm" and vllm_base_url:
-        try:
-            err_msg = f"[TRACE] Attempting vLLM call to {vllm_base_url}"
-            print(err_msg, file=sys.stderr)
-            sys.stderr.flush()
-            
-            url = f"{vllm_base_url}/v1/chat/completions"
-            headers = {"Authorization": f"Bearer {vllm_api_key}"} if vllm_api_key else {}
-            payload = {
-                "model": vllm_model or "default",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ],
-                "max_tokens": max_new_tokens,
-                "temperature": temperature,
-            }
-            response = requests.post(url, json=payload, headers=headers, timeout=30)
-            response.raise_for_status()
-            data = response.json()
-            choices = data.get("choices") or []
-            if choices:
-                message = choices[0].get("message") or {}
-                answer = (message.get("content") or "").strip()
-                if answer:
-                    success_msg = f"[TRACE] vLLM success, returning answer"
-                    print(success_msg, file=sys.stderr)
-                    sys.stderr.flush()
-                    return answer
-        except Exception as e:
-            err = f"[TRACE] vLLM error: {e}"
-            print(err, file=sys.stderr)
-            sys.stderr.flush()
-    
+        print(f"[TRACE] Attempting vLLM call to {vllm_base_url}", file=sys.stderr)
+        sys.stderr.flush()
+
+        url = f"{vllm_base_url}/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {vllm_api_key}"} if vllm_api_key else {}
+        # qwen2.5-0.5b-awq on RunPod reports max_model_len=1024.
+        # The ReAct prompt is instruction-heavy, so use a conservative cap.
+        max_input_chars = 1200
+        prompt_truncated = prompt[:max_input_chars] if len(prompt) > max_input_chars else prompt
+        print(
+            f"[TRACE] Prompt size chars: original={len(prompt)} truncated={len(prompt_truncated)} max_new_tokens={max_new_tokens}",
+            file=sys.stderr,
+        )
+        sys.stderr.flush()
+        payload = {
+            "model": vllm_model or "default",
+            "messages": [{"role": "user", "content": prompt_truncated}],
+            "max_tokens": max_new_tokens,
+            "temperature": temperature,
+        }
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        if not response.ok:
+            raise requests.HTTPError(
+                f"{response.status_code} Client Error: {response.reason} for url: {url} | body: {response.text[:500]}",
+                response=response,
+            )
+        data = response.json()
+        choices = data.get("choices") or []
+        if choices:
+            message = choices[0].get("message") or {}
+            answer = (message.get("content") or "").strip()
+            if answer:
+                print("[TRACE] vLLM success, returning answer", file=sys.stderr)
+                sys.stderr.flush()
+                return answer
+        raise ValueError("Resposta vazia recebida do vLLM.")
+
     # Fallback: usa o gerador local
-    fallback_msg = f"[TRACE] Using local generator fallback"
-    print(fallback_msg, file=sys.stderr)
+    print("[TRACE] Using local generator fallback", file=sys.stderr)
     sys.stderr.flush()
-    
+
     generator = _get_generator()
     if generator is None:
-        return "Final Answer: Não foi possível carregar um modelo de geração local."
+        raise RuntimeError("Gerador local indisponível (modo simulado).")
+
+    rag_model = os.environ.get("RAG_MODEL", "simulated")
+    is_t2t = rag_model in _TEXT2TEXT_MODELS
+    if is_t2t:
+        output = generator(
+            prompt,
+            max_new_tokens=max_new_tokens,
+            num_return_sequences=1,
+            do_sample=False,
+            num_beams=4,
+            no_repeat_ngram_size=3,
+            repetition_penalty=1.2,
+            early_stopping=True,
+        )
+        return output[0]["generated_text"].strip()
 
     output = generator(
         prompt, max_new_tokens=max_new_tokens, temperature=temperature, do_sample=True
     )
     generated_text = output[0]["generated_text"]
     if generated_text.startswith(prompt):
-        return generated_text[len(prompt) :].strip()
+        return generated_text[len(prompt):].strip()
     return generated_text.strip()

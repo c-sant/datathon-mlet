@@ -231,3 +231,7 @@ reports/
 data/raw/
 *.csv
 /models
+
+runpod_guia.txt
+roteiro_video.txt
+requisitos_tecnicos.txt

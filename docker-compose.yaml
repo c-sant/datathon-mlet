@@ -47,7 +47,7 @@ services:
       VLLM_BASE_URL: ${VLLM_BASE_URL:-}
       VLLM_MODEL: ${VLLM_MODEL:-qwen2.5-0.5b-awq}
       VLLM_API_KEY: ${VLLM_API_KEY:-}
-      RAG_MODEL: google/flan-t5-base
+      RAG_MODEL: ${RAG_MODEL:-simulated}
       HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN:-}
     ports:
       - "8000:8000"
