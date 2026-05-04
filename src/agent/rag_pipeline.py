@@ -19,18 +19,16 @@ def _load_runtime_dependencies():
 
     from agent.react_agent import run_agent
     from rag.data_loader import load_news
-    from rag.embedding import all_chunks, embedder, index, ingest_documents, metadata
+    import rag.embedding as _emb
+    from rag.embedding import ingest_documents
     from rag.generator import generate_answer
     from rag.retriever import retrieve
 
     return {
-        "all_chunks": all_chunks,
-        "embedder": embedder,
+        "_emb": _emb,
         "generate_answer": generate_answer,
-        "index": index,
         "ingest_documents": ingest_documents,
         "load_news": load_news,
-        "metadata": metadata,
         "retrieve": retrieve,
         "run_agent": run_agent,
         "uvicorn": uvicorn,
@@ -59,8 +57,9 @@ def load_documents_from_file(path: Path) -> list[dict]:
 
 def run_offline(query: str, top_k: int = 3):
     deps = _load_runtime_dependencies()
+    emb = deps["_emb"]
 
-    if deps["index"] is None or len(deps["all_chunks"]) == 0:
+    if emb.index is None or len(emb.all_chunks) == 0:
         print(
             "O índice RAG não está disponível. Execute uma ingestão antes de usar o modo offline."
         )
@@ -69,10 +68,10 @@ def run_offline(query: str, top_k: int = 3):
     print(f"🔍 Executando pipeline offline para: {query}")
     results = deps["retrieve"](
         query,
-        deps["embedder"],
-        deps["index"],
-        deps["all_chunks"],
-        deps["metadata"],
+        emb.embedder,
+        emb.index,
+        emb.all_chunks,
+        emb.metadata,
         top_k=top_k,
     )
     for item in results:

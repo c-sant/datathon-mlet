@@ -1,0 +1,108 @@
+# =============================================================================
+# model_config.yaml
+#
+# Hiperparâmetros centralizados do projeto datathon-grupo-05.
+# São configurações definidas ANTES do treinamento — não aprendidas pelos dados,
+# mas escolhidas pelo desenvolvedor para controlar o processo de aprendizado.
+# Altere aqui sem precisar modificar o código-fonte.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Dados e janela temporal (pré-processamento)
+# -----------------------------------------------------------------------------
+data:
+  ticker: "ITUB4.SA"        # Ativo padrão a ser treinado
+  start_date: "2025-04-01"  # Data inicial do histórico
+  end_date: "2027-04-30"    # Data final do histórico
+  janela_dias: 90           # Número de dias usados como features (look-back window)
+  train_split: 0.8          # Proporção treino/teste (80% treino, 20% teste)
+  data_path: "data/raw/stock_data.csv"
+
+# -----------------------------------------------------------------------------
+# Modelo PyTorch MLP
+# Rede totalmente conectada para regressão de preços
+# -----------------------------------------------------------------------------
+pytorch_mlp:
+  hidden_layers:
+    - 64   # Neurônios da 1ª camada oculta
+    - 32   # Neurônios da 2ª camada oculta
+  output_size: 1
+  activation: "relu"
+  optimizer:
+    name: "adam"
+    learning_rate: 0.001   # Tamanho do passo na atualização dos pesos
+  loss: "mse"
+  epochs: 50               # Número de vezes que o modelo vê todo o dataset
+
+# -----------------------------------------------------------------------------
+# Modelo Scikit-learn MLP Regressor
+# -----------------------------------------------------------------------------
+sklearn_mlp:
+  hidden_layer_sizes:
+    - 64
+    - 32
+  max_iter: 500            # Máximo de iterações para convergência do solver
+  random_state: 42         # Semente para reprodutibilidade
+
+# -----------------------------------------------------------------------------
+# Modelo Keras LSTM
+# Rede recorrente para captura de dependências temporais
+# -----------------------------------------------------------------------------
+keras_lstm:
+  layers:
+    - type: "LSTM"
+      units: 50            # Número de unidades na célula LSTM
+      return_sequences: true
+    - type: "Dropout"
+      rate: 0.2            # Fração de neurônios desligados (regularização)
+    - type: "LSTM"
+      units: 50
+      return_sequences: false
+    - type: "Dropout"
+      rate: 0.2
+    - type: "Dense"
+      units: 1
+  optimizer: "adam"
+  loss: "mean_squared_error"
+  epochs: 40               # Épocas máximas (sujeito a early stopping)
+  batch_size: 32           # Exemplos processados por iteração
+  early_stopping:
+    monitor: "val_loss"
+    patience: 4            # Épocas sem melhora antes de parar
+    restore_best_weights: true
+
+# -----------------------------------------------------------------------------
+# RAG — Embedding e Recuperação
+# -----------------------------------------------------------------------------
+rag:
+  chunking:
+    chunk_size: 300        # Palavras por chunk de texto indexado
+    overlap: 50            # Palavras sobrepostas entre chunks consecutivos
+  retriever:
+    top_k: 3               # Número de chunks retornados por consulta
+
+# -----------------------------------------------------------------------------
+# LLM — Geração de texto (generator)
+# -----------------------------------------------------------------------------
+llm:
+  generate_answer:
+    max_new_tokens: 256
+    temperature: 0.7       # Aleatoriedade: 0 = determinístico, 1 = mais criativo
+    do_sample: true
+  generate_text:
+    max_new_tokens: 128
+    temperature: 0.7
+    do_sample: true
+
+# -----------------------------------------------------------------------------
+# Agente ReAct
+# -----------------------------------------------------------------------------
+agent:
+  max_steps: 2             # Máximo de ciclos Thought→Action→Observation
+  top_k: 3                 # top_k repassado à tool search_documents
+  inference:
+    max_new_tokens: 140    # Tokens gerados por chamada do agente
+    temperature: 0.5       # Temperatura mais baixa = respostas mais focadas
+  tool_summarize:
+    max_new_tokens: 128
+    temperature: 0.5

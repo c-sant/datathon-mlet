@@ -5,14 +5,39 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+RUN apt-get update && apt-get install -y \
     git \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . /app
+RUN useradd -m appuser
 
-RUN pip install --upgrade pip setuptools wheel
-RUN pip install -e ".[test]"
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip setuptools wheel
 
-CMD ["pytest"]
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install tensorflow>=2.15
+
+COPY pyproject.toml .
+COPY README.md .
+COPY src/ src/
+COPY data/ data/
+COPY tests/ tests/
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install ".[test]" --extra-index-url https://download.pytorch.org/whl/cpu
+
+RUN python -m spacy download en_core_web_lg
+
+COPY . .
+
+RUN mkdir -p data/raw models reports mlflow \
+    && chown -R appuser:appuser /app \
+    && git config --system --add safe.directory /app
+
+USER appuser
+
+CMD ["pytest", "-v"]

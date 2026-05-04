@@ -9,7 +9,6 @@ __pycache__
 .dvc/cache
 
 models
-reports
 
 mlflow/artifacts
 
