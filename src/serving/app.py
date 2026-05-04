@@ -39,6 +39,11 @@ app.add_middleware(
 )
 
 
+@app.get("/health", tags=["0. Infra"], summary="Healthcheck da API")
+def healthcheck():
+    return {"status": "ok"}
+
+
 class Document(BaseModel):
     id: str | None = Field(None, description="Identificador único do documento")
     title: str | None = Field(None, description="Título do documento")
@@ -345,9 +350,6 @@ def query_rag(q: str, top_k: int = 3):
     safe_query = _validate_user_query(q)
     result = _query_with_rag(safe_query, top_k)
     return _sanitize_public_value(result)
-    safe_query = _validate_user_query(q)
-    result = _query_with_rag(safe_query, top_k)
-    return _sanitize_public_value(result)
 
 
 class AgentRequest(BaseModel):
@@ -377,12 +379,6 @@ def agent_rag(payload: AgentRequest):
         fast = _query_with_rag(safe_query, payload.top_k)
         response = {
             "query": safe_query,
-    safe_query = _validate_user_query(payload.query)
-
-    if _is_model_query(safe_query):
-        fast = _query_with_rag(safe_query, payload.top_k)
-        response = {
-            "query": safe_query,
             "answer": fast["answer"],
             "trace": [
                 {
@@ -395,15 +391,10 @@ def agent_rag(payload: AgentRequest):
             ],
         }
         return _sanitize_public_value(response)
-        return _sanitize_public_value(response)
 
     try:
         result = run_agent(safe_query, top_k=payload.top_k)
-        result = run_agent(safe_query, top_k=payload.top_k)
     except Exception as exc:
-        fast = _query_with_rag(safe_query, payload.top_k)
-        response = {
-            "query": safe_query,
         fast = _query_with_rag(safe_query, payload.top_k)
         response = {
             "query": safe_query,
@@ -419,14 +410,12 @@ def agent_rag(payload: AgentRequest):
             ],
         }
         return _sanitize_public_value(response)
-        return _sanitize_public_value(response)
 
     # Detecta resposta vazia/template gerada quando o FLAN não consegue seguir
     # o formato ReAct — fallback para caminho RAG direto com contexto real.
     answer = (result.get("answer") or "").strip()
     _bad = {"reposta objetiva:", "resposta objetiva:", "reposta objetiva", "resposta objetiva", ""}
     if answer.lower().rstrip(":").strip() in _bad or answer.lower().startswith("reposta objetiv"):
-        fast = _query_with_rag(safe_query, payload.top_k)
         fast = _query_with_rag(safe_query, payload.top_k)
         result["answer"] = fast["answer"]
         result.setdefault("trace", []).append(
@@ -439,5 +428,4 @@ def agent_rag(payload: AgentRequest):
             }
         )
 
-    return _sanitize_public_value(result)
     return _sanitize_public_value(result)
