@@ -14,6 +14,22 @@ _DEFAULT_MAX_STEPS: int = _cfg["max_steps"]
 _DEFAULT_TOP_K: int = _cfg["top_k"]
 
 
+def _synthesize_final_answer(query: str, observation: str) -> str:
+    obs_for_answer = observation[:1800] + "..." if len(observation) > 1800 else observation
+    synthesis_prompt = (
+        "Com base no contexto abaixo, responda de forma objetiva e em português:\n"
+        f"Pergunta: {query}\n\nContexto:\n{obs_for_answer}\n\nResposta:"
+    )
+    try:
+        return generate_text(
+            synthesis_prompt,
+            max_new_tokens=_INFERENCE_MAX_NEW_TOKENS,
+            temperature=0.3,
+        )
+    except Exception:
+        return generate_answer(query, obs_for_answer)
+
+
 def _format_tool_descriptions() -> str:
     lines = [f"{tool.name}: {tool.description}" for tool in TOOLS]
     return "\n".join(lines)
@@ -24,6 +40,34 @@ def _parse_agent_output(text: str) -> dict[str, Any]:
     action = None
     action_input = None
     final_answer = None
+
+    # Preferred contract: strict JSON payload from the model.
+    json_match = re.search(r"\{[\s\S]*\}", text)
+    if json_match:
+        try:
+            payload = json.loads(json_match.group(0))
+            action = payload.get("action")
+            if isinstance(action, str) and action.strip().lower() in {"", "null", "none"}:
+                action = None
+
+            action_input = payload.get("action_input")
+            if isinstance(action_input, str) and action_input.strip().lower() in {"", "null", "none"}:
+                action_input = None
+
+            final_answer = payload.get("final_answer")
+            if isinstance(final_answer, str) and final_answer.strip().lower() in {"", "null", "none"}:
+                final_answer = None
+
+            return {
+                "thought": str(payload.get("thought", "")).strip(),
+                "action": action,
+                "action_input": action_input,
+                "final_answer": final_answer,
+                "raw": text.strip(),
+            }
+        except json.JSONDecodeError:
+            # Fallback to legacy parser if model emits invalid JSON.
+            pass
 
     thought_match = re.search(r"(?:Thought|Pensamento):\s*(.*?)(?:\n(?:Action|Ação|Acao):|\n(?:Final Answer|Resposta Final):|$)", text, re.S | re.IGNORECASE)
     if thought_match:
@@ -58,39 +102,37 @@ def _parse_agent_output(text: str) -> dict[str, Any]:
 
 def _build_agent_prompt(query: str, history: list[dict[str, Any]], observation: str) -> str:
     prompt = (
-        "Você é um agente ReAct de finanças. Responda SEMPRE no formato exato abaixo, sem exceção.\n\n"
+        "Você é um agente ReAct de finanças.\n"
+        "Responda SOMENTE com JSON válido (sem markdown e sem texto fora do JSON).\n\n"
         "Ferramentas disponíveis:\n"
         f"{_format_tool_descriptions()}\n\n"
-        "REGRAS OBRIGATÓRIAS:\n"
-        "1. Sempre comece com 'Thought:' seguido do seu raciocínio\n"
-        "2. Se precisar de informações, use 'Action:' com o nome exato da ferramenta\n"
-        "3. Use 'Action Input:' com os parâmetros em JSON\n"
-        "4. Quando tiver a resposta final, use 'Final Answer:'\n"
-        "5. NÃO traduza os labels - use SEMPRE em inglês: Thought:, Action:, Action Input:, Final Answer:\n\n"
-        "EXEMPLO DE FORMATO CORRETO:\n"
-        "Thought: Preciso buscar dados sobre a ação no índice de documentos.\n"
-        "Action: search_documents\n"
-        'Action Input: {"query": "ITUB4 valor preço 2026"}\n'
-        "Observation: [resultado da busca]\n"
-        "Thought: Com base nos documentos encontrados, posso responder.\n"
-        'Final Answer: Com base nos dados, ITUB4 está sendo negociada a R$34,50.\n\n'
-        "Agora responda a pergunta do usuário usando exatamente esse formato.\n\n"
+        "Contrato obrigatório de resposta (JSON):\n"
+        '{"thought":"...","action":"search_documents|fetch_news|summarize_context|null","action_input":{},"final_answer":"...|null"}\n\n'
+        "Regras:\n"
+        "1) Se faltar dado, escolha action (não responda final imediatamente).\n"
+        "2) Quando já houver contexto suficiente, use action=null e preencha final_answer.\n"
+        "3) action_input deve ser objeto JSON (ou null quando action=null).\n\n"
+        "4) Se o usuário pedir atualizar notícias/recentes, use fetch_news antes de responder.\n"
+        "5) Se o usuário pedir resumo/bullets, use summarize_context antes de responder.\n\n"
     )
 
     if history:
         prompt += "Histórico:\n"
         for step in history:
             prompt += (
-                f"Thought: {step.get('thought', '')}\n"
-                f"Action: {step.get('action', '')}\n"
-                f"Action Input: {json.dumps(step.get('action_input', ''), ensure_ascii=False)}\n"
-                f"Observation: {step.get('observation', '')}\n\n"
+                f"step={step.get('step', '')}\n"
+                f"thought={step.get('thought', '')}\n"
+                f"action={step.get('action', '')}\n"
+                f"action_input={json.dumps(step.get('action_input', ''), ensure_ascii=False)}\n"
+                f"observation={step.get('observation', '')}\n\n"
             )
 
     prompt += f"Usuário: {query}\n"
     if observation:
-        prompt += f"Observation: {observation}\n"
-    prompt += "Thought:"
+        # Truncate observation to avoid small models echoing the full context back
+        obs_truncated = observation[:600] + "..." if len(observation) > 600 else observation
+        prompt += f"Observation: {obs_truncated}\n"
+    prompt += "Retorne apenas o JSON do contrato obrigatório."
     return prompt
 
 
@@ -101,14 +143,81 @@ def _execute_tool(action: str, action_input: Any) -> str:
     return tool.func(action_input)
 
 
+def _normalize_action(action: Any) -> str | None:
+    if not isinstance(action, str):
+        return None
+
+    raw = action.strip()
+    if not raw:
+        return None
+
+    if raw in TOOL_MAP:
+        return raw
+
+    # Handle malformed outputs like "search_documents|fetch_news".
+    for token in re.split(r"[|,/;\s]+", raw):
+        token = token.strip()
+        if token in TOOL_MAP:
+            return token
+
+    return None
+
+
+def _infer_forced_action(
+    query: str, history: list[dict[str, Any]], observation: str
+) -> tuple[str | None, Any]:
+    q = (query or "").lower()
+    actions_done = {str(item.get("action") or "") for item in history}
+
+    wants_news_update = any(
+        token in q for token in ["atualize", "atualizar", "recentes", "notícias", "noticias"]
+    )
+    wants_summary = any(
+        token in q for token in ["resuma", "resumo", "bullet", "bullets", "sumarize", "summarize"]
+    )
+
+    if wants_news_update and "fetch_news" not in actions_done:
+        return "fetch_news", {}
+
+    if wants_summary and "summarize_context" not in actions_done:
+        return "summarize_context", {"context": observation}
+
+    return None, None
+
+
 def run_agent(
     query: str, top_k: int = _DEFAULT_TOP_K, max_steps: int = _DEFAULT_MAX_STEPS
 ) -> dict[str, Any]:
     history = []
+    trace = []
     observation = ""
 
-    if _emb.index is None or len(_emb.all_chunks) == 0:
+    # Pre-step: always search documents first so the LLM always has real context,
+    # regardless of whether it emits an Action: or jumps straight to an answer.
+    if _emb.index is not None and len(_emb.all_chunks) > 0:
+        observation = _execute_tool("search_documents", {"query": query, "top_k": top_k})
+        trace.append(
+            {
+                "step": 1,
+                "thought": "Pré-busca automática para garantir contexto inicial.",
+                "action": "search_documents",
+                "action_input": {"query": query, "top_k": top_k},
+                "raw_output": "",
+                "observation": observation,
+            }
+        )
+    else:
         observation = "O índice de busca está vazio ou indisponível."
+        trace.append(
+            {
+                "step": 1,
+                "thought": "Índice indisponível na pré-busca.",
+                "action": "search_documents",
+                "action_input": {"query": query, "top_k": top_k},
+                "raw_output": "",
+                "observation": observation,
+            }
+        )
 
     for step in range(max_steps):
         prompt = _build_agent_prompt(query, history, observation)
@@ -119,18 +228,31 @@ def run_agent(
         except Exception as exc:
             return {
                 "query": query,
-                "answer": generate_answer(query, observation),
-                "trace": [
+                "answer": _synthesize_final_answer(query, observation),
+                "trace": trace + [
                     {
-                        "step": step + 1,
+                        "step": step + 2,
                         "error": f"Falha na geração de texto: {exc}",
                     }
                 ],
             }
 
         parsed = _parse_agent_output(raw_output)
+        parsed["action"] = _normalize_action(parsed.get("action"))
+
+        # If the model tries to return both action and final answer in the same step,
+        # enforce ReAct behavior: execute the action first.
+        if parsed.get("action") and parsed.get("final_answer"):
+            parsed["final_answer"] = None
+
+        forced_action, forced_input = _infer_forced_action(query, history, observation)
+        if forced_action:
+            parsed["action"] = forced_action
+            parsed["action_input"] = forced_input
+            parsed["final_answer"] = None
+
         step_record = {
-            "step": step + 1,
+            "step": step + 2,
             "thought": parsed["thought"],
             "action": parsed["action"],
             "action_input": parsed["action_input"],
@@ -142,19 +264,23 @@ def run_agent(
             return {
                 "query": query,
                 "answer": parsed["final_answer"],
-                "trace": history + [step_record],
+                "trace": trace + history + [step_record],
             }
 
         if not parsed["action"]:
-            return {
-                "query": query,
-                "answer": generate_answer(query, observation),
-                "trace": history + [step_record],
-            }
+            # Do not terminate early: keep ReAct loop running until max_steps.
+            step_record["observation"] = "Nenhuma ação emitida pelo modelo neste passo."
+            history.append(step_record)
+            continue
 
         action_input = parsed["action_input"]
+        if action_input is None:
+            action_input = {}
         if parsed["action"] == "search_documents" and isinstance(action_input, dict):
+            action_input.setdefault("query", query)
             action_input.setdefault("top_k", top_k)
+        if parsed["action"] == "summarize_context" and isinstance(action_input, dict):
+            action_input.setdefault("context", observation)
 
         observation = _execute_tool(parsed["action"], action_input)
         step_record["observation"] = observation
@@ -163,8 +289,10 @@ def run_agent(
         if parsed["action"] == "fetch_news":
             query = query
 
+    # Synthesise final answer directly via vLLM using truncated observation.
+    # Avoids token overflow from passing the full observation to generate_answer.
     return {
         "query": query,
-        "answer": generate_answer(query, observation),
-        "trace": history,
+        "answer": _synthesize_final_answer(query, observation),
+        "trace": trace + history,
     }

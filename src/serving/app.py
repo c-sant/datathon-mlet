@@ -1,5 +1,7 @@
 import re
 from difflib import SequenceMatcher
+from functools import lru_cache
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +13,7 @@ from rag.embedding import ingest_documents
 from rag.generator import generate_answer
 from rag.mlflow_loader import load_mlflow_docs
 from rag.retriever import retrieve
+from security.guardrails import InputGuardrail, OutputGuardrail
 
 app = FastAPI(
     title="Datathon RAG API",
@@ -45,6 +48,16 @@ class IngestRequest(BaseModel):
     overwrite: bool = Field(True, description="Substituir a base existente se True")
 
 
+@lru_cache
+def _get_input_guardrail() -> InputGuardrail:
+    return InputGuardrail()
+
+
+@lru_cache
+def _get_output_guardrail() -> OutputGuardrail:
+    return OutputGuardrail(language="pt")
+
+
 def _fix_mojibake(text: str) -> str:
     if not text:
         return text
@@ -62,6 +75,33 @@ def _normalize_text(text: str) -> str:
     text = _fix_mojibake(text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
+
+
+def _validate_user_query(query: str) -> str:
+    clean_query = _normalize_text(query)
+    if not clean_query:
+        raise HTTPException(status_code=400, detail="Input bloqueado: consulta vazia.")
+
+    is_valid, reason = _get_input_guardrail().validate(clean_query)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=reason)
+
+    return clean_query
+
+
+def _sanitize_public_value(value: Any) -> Any:
+    if isinstance(value, str):
+        if not value:
+            return value
+        return _get_output_guardrail().sanitize(value)
+
+    if isinstance(value, list):
+        return [_sanitize_public_value(item) for item in value]
+
+    if isinstance(value, dict):
+        return {key: _sanitize_public_value(item) for key, item in value.items()}
+
+    return value
 
 
 def _build_context(results: list[dict], max_chars: int = 1800) -> str:
@@ -259,7 +299,9 @@ def query_rag(q: str, top_k: int = 3):
     - `qual o ranking por MAPE`
     - `quais os parâmetros de treinamento usados`
     """
-    return _query_with_rag(q, top_k)
+    safe_query = _validate_user_query(q)
+    result = _query_with_rag(safe_query, top_k)
+    return _sanitize_public_value(result)
 
 
 class AgentRequest(BaseModel):
@@ -283,10 +325,12 @@ def agent_rag(payload: AgentRequest):
     Para consultas de métricas/modelo, aplica caminho rápido via RAG direto
     para reduzir latência sem perder precisão.
     """
-    if _is_model_query(payload.query):
-        fast = _query_with_rag(payload.query, payload.top_k)
-        return {
-            "query": payload.query,
+    safe_query = _validate_user_query(payload.query)
+
+    if _is_model_query(safe_query):
+        fast = _query_with_rag(safe_query, payload.top_k)
+        response = {
+            "query": safe_query,
             "answer": fast["answer"],
             "trace": [
                 {
@@ -298,13 +342,14 @@ def agent_rag(payload: AgentRequest):
                 }
             ],
         }
+        return _sanitize_public_value(response)
 
     try:
-        result = run_agent(payload.query, top_k=payload.top_k)
+        result = run_agent(safe_query, top_k=payload.top_k)
     except Exception as exc:
-        fast = _query_with_rag(payload.query, payload.top_k)
-        return {
-            "query": payload.query,
+        fast = _query_with_rag(safe_query, payload.top_k)
+        response = {
+            "query": safe_query,
             "answer": fast["answer"],
             "trace": [
                 {
@@ -316,13 +361,14 @@ def agent_rag(payload: AgentRequest):
                 }
             ],
         }
+        return _sanitize_public_value(response)
 
     # Detecta resposta vazia/template gerada quando o FLAN não consegue seguir
     # o formato ReAct — fallback para caminho RAG direto com contexto real.
     answer = (result.get("answer") or "").strip()
     _bad = {"reposta objetiva:", "resposta objetiva:", "reposta objetiva", "resposta objetiva", ""}
     if answer.lower().rstrip(":").strip() in _bad or answer.lower().startswith("reposta objetiv"):
-        fast = _query_with_rag(payload.query, payload.top_k)
+        fast = _query_with_rag(safe_query, payload.top_k)
         result["answer"] = fast["answer"]
         result.setdefault("trace", []).append(
             {
@@ -334,4 +380,4 @@ def agent_rag(payload: AgentRequest):
             }
         )
 
-    return result
+    return _sanitize_public_value(result)

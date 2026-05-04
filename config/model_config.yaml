@@ -80,6 +80,20 @@ rag:
     overlap: 50            # Palavras sobrepostas entre chunks consecutivos
   retriever:
     top_k: 3               # Número de chunks retornados por consulta
+  ingestion:
+    tickers:
+      - "ITUB4"
+      - "PETR4"
+      - "VALE3"
+      - "BBAS3"
+      - "BBDC4"
+    # Mapa ticker -> slug de empresa do InfoMoney (empresa/ticker no path)
+    infomoney_company_slugs:
+      ITUB4: "itau-unibanco"
+      PETR4: "petrobras"
+      VALE3: "vale-vale3"
+      BBAS3: "banco-do-brasil"
+      BBDC4: "bradesco"
 
 # -----------------------------------------------------------------------------
 # LLM — Geração de texto (generator)
