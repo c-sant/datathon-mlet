@@ -2,6 +2,8 @@ import re
 from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any
+from functools import lru_cache
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,6 +48,16 @@ class Document(BaseModel):
 class IngestRequest(BaseModel):
     docs: list[Document] = Field(..., description="Lista de documentos a serem ingeridos")
     overwrite: bool = Field(True, description="Substituir a base existente se True")
+
+
+@lru_cache
+def _get_input_guardrail() -> InputGuardrail:
+    return InputGuardrail()
+
+
+@lru_cache
+def _get_output_guardrail() -> OutputGuardrail:
+    return OutputGuardrail(language="pt")
 
 
 @lru_cache
@@ -104,6 +116,33 @@ def _sanitize_public_value(value: Any) -> Any:
     return value
 
 
+def _validate_user_query(query: str) -> str:
+    clean_query = _normalize_text(query)
+    if not clean_query:
+        raise HTTPException(status_code=400, detail="Input bloqueado: consulta vazia.")
+
+    is_valid, reason = _get_input_guardrail().validate(clean_query)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=reason)
+
+    return clean_query
+
+
+def _sanitize_public_value(value: Any) -> Any:
+    if isinstance(value, str):
+        if not value:
+            return value
+        return _get_output_guardrail().sanitize(value)
+
+    if isinstance(value, list):
+        return [_sanitize_public_value(item) for item in value]
+
+    if isinstance(value, dict):
+        return {key: _sanitize_public_value(item) for key, item in value.items()}
+
+    return value
+
+
 def _build_context(results: list[dict], max_chars: int = 1800) -> str:
     """Monta contexto estruturado, limpo e com menor redundância para geração."""
     selected: list[str] = []
@@ -118,8 +157,7 @@ def _build_context(results: list[dict], max_chars: int = 1800) -> str:
 
         # Evita contexto redundante por similaridade muito alta entre chunks.
         is_duplicate = any(
-            SequenceMatcher(None, text.lower(), prev.lower()).ratio() > 0.9
-            for prev in seen_texts
+            SequenceMatcher(None, text.lower(), prev.lower()).ratio() > 0.9 for prev in seen_texts
         )
         if is_duplicate:
             continue
@@ -270,7 +308,12 @@ def ingest_mlflow():
     """
     docs = load_mlflow_docs()
     if not docs:
-        return {"status": "ok", "message": "Nenhum documento MLflow encontrado.", "doc_count": 0, "chunk_count": 0}
+        return {
+            "status": "ok",
+            "message": "Nenhum documento MLflow encontrado.",
+            "doc_count": 0,
+            "chunk_count": 0,
+        }
 
     stats = ingest_documents(docs, overwrite=False)
     return {
@@ -299,6 +342,9 @@ def query_rag(q: str, top_k: int = 3):
     - `qual o ranking por MAPE`
     - `quais os parâmetros de treinamento usados`
     """
+    safe_query = _validate_user_query(q)
+    result = _query_with_rag(safe_query, top_k)
+    return _sanitize_public_value(result)
     safe_query = _validate_user_query(q)
     result = _query_with_rag(safe_query, top_k)
     return _sanitize_public_value(result)
@@ -331,6 +377,12 @@ def agent_rag(payload: AgentRequest):
         fast = _query_with_rag(safe_query, payload.top_k)
         response = {
             "query": safe_query,
+    safe_query = _validate_user_query(payload.query)
+
+    if _is_model_query(safe_query):
+        fast = _query_with_rag(safe_query, payload.top_k)
+        response = {
+            "query": safe_query,
             "answer": fast["answer"],
             "trace": [
                 {
@@ -343,10 +395,15 @@ def agent_rag(payload: AgentRequest):
             ],
         }
         return _sanitize_public_value(response)
+        return _sanitize_public_value(response)
 
     try:
         result = run_agent(safe_query, top_k=payload.top_k)
+        result = run_agent(safe_query, top_k=payload.top_k)
     except Exception as exc:
+        fast = _query_with_rag(safe_query, payload.top_k)
+        response = {
+            "query": safe_query,
         fast = _query_with_rag(safe_query, payload.top_k)
         response = {
             "query": safe_query,
@@ -362,12 +419,14 @@ def agent_rag(payload: AgentRequest):
             ],
         }
         return _sanitize_public_value(response)
+        return _sanitize_public_value(response)
 
     # Detecta resposta vazia/template gerada quando o FLAN não consegue seguir
     # o formato ReAct — fallback para caminho RAG direto com contexto real.
     answer = (result.get("answer") or "").strip()
     _bad = {"reposta objetiva:", "resposta objetiva:", "reposta objetiva", "resposta objetiva", ""}
     if answer.lower().rstrip(":").strip() in _bad or answer.lower().startswith("reposta objetiv"):
+        fast = _query_with_rag(safe_query, payload.top_k)
         fast = _query_with_rag(safe_query, payload.top_k)
         result["answer"] = fast["answer"]
         result.setdefault("trace", []).append(
@@ -380,4 +439,5 @@ def agent_rag(payload: AgentRequest):
             }
         )
 
+    return _sanitize_public_value(result)
     return _sanitize_public_value(result)

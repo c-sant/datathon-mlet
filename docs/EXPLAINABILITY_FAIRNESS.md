@@ -6,7 +6,7 @@ Documento que **operacionaliza** os requisitos de explicabilidade (XAI) e *fairn
 2. **RAG** com índice FAISS sobre documentos financeiros — ver [src/rag/](src/rag/).
 3. **Agente ReAct** que orquestra ferramentas e gera recomendações — ver [src/agent/react_agent.py](src/agent/react_agent.py).
 
-Todas as camadas produzem ou influenciam **recomendações financeiras**, o que ativa o **Art. 20 da LGPD** (direito à revisão de decisões automatizadas) e o **Art. 6º, IX** (princípio da não discriminação). Este documento é complementar a [docs/OWASP.md](docs/OWASP.md), [docs/RED_TEAMING.md](docs/RED_TEAMING.md) e [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md).
+Todas as camadas produzem ou influenciam **recomendações financeiras**, o que ativa o **Art. 20 da LGPD** (direito à revisão de decisões automatizadas) e o **Art. 6º, IX** (princípio da não discriminação). Este documento é complementar a [docs/OWASP.md](docs/OWASP.md), [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md) e [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md).
 
 ---
 
@@ -28,11 +28,11 @@ Todas as camadas produzem ou influenciam **recomendações financeiras**, o que 
 
 | Dimensão | Risco específico do projeto | Onde no código |
 |----------|-----------------------------|----------------|
-| Decisão automatizada com efeito financeiro | Recomendações de ações/alocação | [src/rag/generator.py:148-161](src/rag/generator.py#L148-L161), [src/agent/react_agent.py:60-62](src/agent/react_agent.py#L60-L62) |
-| Modelo de séries temporais sem feature importance | MLP/LSTM tratam preço como única entrada — usuário não sabe **por que** previu X | [src/models/train.py:43-54](src/models/train.py#L43-L54), [src/models/train.py:255-262](src/models/train.py#L255-L262) |
-| Recuperação RAG sem citação visível na resposta | `/query` retorna `answer` desacoplado das fontes | [src/serving/app.py:50-58](src/serving/app.py#L50-L58) |
-| Agente ReAct com trace exposto, mas sem garantia de fidelidade | Trace pode ser *post-hoc*, não causal | [src/agent/react_agent.py:97-163](src/agent/react_agent.py#L97-L163) |
-| Viés potencial em recomendações | Concentração em ativos *blue-chip* / mercado brasileiro / horário comercial dos dados de treino | [src/rag/generator.py:148-171](src/rag/generator.py#L148-L171) |
+| Decisão automatizada com efeito financeiro | Recomendações de ações/alocação | [src/rag/generator.py:569+](src/rag/generator.py#L569), [src/agent/react_agent.py:60-78](src/agent/react_agent.py#L60-L78) |
+| Modelo de séries temporais sem feature importance | MLP/LSTM tratam preço como única entrada — usuário não sabe **por que** previu X | [src/models/train.py:38-49](src/models/train.py#L38-L49), [src/models/train.py:262+](src/models/train.py#L262) |
+| Recuperação RAG sem citação visível na resposta | `/query` retorna `answer` desacoplado das fontes | [src/serving/app.py:165-184](src/serving/app.py#L165-L184), [src/serving/app.py:244-262](src/serving/app.py#L244-L262) |
+| Agente ReAct com trace exposto, mas sem garantia de fidelidade | Trace pode ser *post-hoc*, não causal | [src/agent/react_agent.py:104-170](src/agent/react_agent.py#L104-L170) |
+| Viés potencial em recomendações | Concentração em ativos *blue-chip* / mercado brasileiro / horário comercial dos dados de treino | [src/rag/generator.py:569+](src/rag/generator.py#L569) |
 | Decisões automatizadas (LGPD Art. 20) | Direito à revisão por pessoa natural | — não implementado |
 
 ---
@@ -41,16 +41,16 @@ Todas as camadas produzem ou influenciam **recomendações financeiras**, o que 
 
 ### 2.1 Estado atual
 
-Três modelos treinados sobre janela univariada de preços `Close` ([src/models/train.py:116-131](src/models/train.py#L116-L131)):
+Três modelos treinados sobre janela multivariada de features tratadas ([src/models/train.py:160](src/models/train.py#L160), [src/features/feature_engineering.py](src/features/feature_engineering.py)):
 
 | Modelo | Arquitetura | Saída interpretável hoje? |
 |--------|-------------|---------------------------|
-| PyTorch MLP | 3 camadas densas (input → 64 → 32 → 1) | Não |
-| Sklearn MLPRegressor | hidden_layer_sizes via config | Não |
-| Keras LSTM | LSTM(50) → Dropout → LSTM(50) → Dropout → Dense(1) | Não |
-| Baseline | `y_pred = X_test[:, -1]` (último valor) | Sim (trivial) |
+| PyTorch MLP | 3 camadas densas (input → 64 → 32 → 1) — [train.py:38-49](src/models/train.py#L38-L49) | Não |
+| Sklearn MLPRegressor | `hidden_layer_sizes=(64, 32)` — [train.py:364](src/models/train.py#L364) | Não |
+| Keras LSTM | LSTM(50, return_sequences=True) → LSTM(50) → Dense(1) — [train.py:390-392](src/models/train.py#L390-L392) | Não |
+| Baseline | `y_pred = X_test[:, -1]` (último valor) — [src/models/baseline.py](src/models/baseline.py) | Sim (trivial) |
 
-**Métricas atuais.** MAE, RMSE, MAPE registradas no MLflow ([train.py:79-91](src/models/train.py#L79-L91)). Métricas de **erro**, mas **não de explicabilidade**.
+**Métricas atuais.** MAE, RMSE, MAPE registradas no MLflow via pipeline DVC. Split temporal 80/20 logado em [train.py:317](src/models/train.py#L317). Métricas de **erro**, mas **não de explicabilidade**.
 
 ### 2.2 Técnicas a implementar
 
@@ -99,27 +99,28 @@ Cada chamada de inferência deve devolver, além do número:
 
 ### 3.1 Estado atual
 
-A função `retrieve` em [src/rag/retriever.py](src/rag/retriever.py) **já devolve** rank, distância L2, `doc_id`, `title` e texto do chunk (visto em [src/agent/tools.py:20-30](src/agent/tools.py#L20-L30)).
+A função `retrieve` em [src/rag/retriever.py](src/rag/retriever.py) **já devolve** rank, distância L2, `doc_id`, `title` e texto do chunk (visto em [src/agent/tools.py:21-31](src/agent/tools.py#L21-L31)).
 
-**Problema.** Em [src/serving/app.py:55-58](src/serving/app.py#L55-L58), `/query` concatena os chunks em uma string `context` e o LLM gera `answer` **sem preservar a vinculação**:
+**Problema.** Em [src/serving/app.py:165-184](src/serving/app.py#L165-L184), `_query_with_rag` monta um `context` estruturado por `_build_context` ([app.py:67-104](src/serving/app.py#L67-L104)) — porém o `answer` é gerado a partir desse contexto **sem preservar vinculação por sentença**:
 
 ```python
-context = " ".join([r["text"] for r in results])
+results = _rerank_for_model_query(q, raw_results, top_k)
+context = _build_context(results)
 answer = generate_answer(q, context)
 return {"query": q, "top_k": top_k, "context": context, "answer": answer}
 ```
 
-O usuário recebe `context` e `answer` separados, sem saber **qual trecho do contexto sustenta cada afirmação da resposta**.
+O usuário recebe `context` e `answer` separados, sem saber **qual trecho do contexto sustenta cada afirmação da resposta** — embora os blocos `Fonte i:` em `_build_context` já tragam título e `fetched_at`.
 
 ### 3.2 Técnicas a implementar
 
 | Técnica | Saída | Onde alterar |
 |---------|-------|--------------|
-| **Retornar `sources` estruturado** com `rank`, `score`, `doc_id`, `title`, `chunk_id` | Lista paralela ao `answer` | [app.py:50-58](src/serving/app.py#L50-L58) |
-| **Citation in-line** no prompt do LLM (`[1]`, `[2]`) e parse pós-geração | Mapeamento `claim → chunk` | [generator.py:120](src/rag/generator.py#L120) |
-| **Faithfulness score** (ex.: RAGAS) | Métrica de quanto da `answer` é sustentada por `context` | Pipeline de avaliação |
+| **Retornar `sources` estruturado** com `rank`, `score`, `doc_id`, `title`, `chunk_id` | Lista paralela ao `answer` | [app.py:165-184](src/serving/app.py#L165-L184) |
+| **Citation in-line** no prompt do LLM (`[1]`, `[2]`) e parse pós-geração | Mapeamento `claim → chunk` | [src/rag/generator.py](src/rag/generator.py) (no prompt builder do path remoto/local) |
+| **Faithfulness score** (ex.: RAGAS) | Métrica de quanto da `answer` é sustentada por `context` | Pipeline de avaliação + dashboard Grafana |
 | **Confidence threshold por distância L2** | Recusar resposta se `min(distance) > τ` | [retriever.py](src/rag/retriever.py) |
-| **Highlight do span recuperado** | Front exibe o trecho citado | `api_test.html` |
+| **Highlight do span recuperado** | Front exibe o trecho citado | [docs/index.html](docs/index.html) (página de demo) |
 
 ### 3.3 Resposta proposta para `/query`
 
@@ -162,20 +163,21 @@ O usuário recebe `context` e `answer` separados, sem saber **qual trecho do con
 
 ### 4.1 Estado atual
 
-O agente **já retorna `trace`** em [src/agent/react_agent.py:135-139](src/agent/react_agent.py#L135-L139), com `thought`, `action`, `action_input`, `observation` por step. Isso é **explicabilidade nativa do paradigma ReAct**.
+O agente **já retorna `trace`** em [src/agent/react_agent.py:131-145](src/agent/react_agent.py#L131-L145), com `thought`, `action`, `action_input`, `observation` por step. Isso é **explicabilidade nativa do paradigma ReAct**. O endpoint `/agent` ainda adiciona um `trace` extra quando aplica o caminho rápido para queries de modelo ([app.py:286-318](src/serving/app.py#L286-L318)).
 
 **Riscos da explicação atual.**
-- O `thought` é gerado pelo próprio LLM e pode ser **post-hoc** (racionalização que não corresponde ao processo causal real).
-- O `raw_output` ([react_agent.py:130](src/agent/react_agent.py#L130)) preserva a saída do modelo, mas pode conter system prompt vazado (ver RT-01 em [docs/RED_TEAMING.md](docs/RED_TEAMING.md#rt-01--prompt-injection-direta-com-vazamento-de-system-prompt)).
-- Quando o agente cai no fallback simulado ([generator.py:137-171](src/rag/generator.py#L137-L171)), o `trace` mostra raciocínio falso porque a resposta vem de regex hardcoded, **não** do LLM.
+- O `thought` é gerado pelo próprio LLM remoto (vLLM/RunPod) e pode ser **post-hoc** (racionalização que não corresponde ao processo causal real).
+- O `raw_output` ([react_agent.py:137](src/agent/react_agent.py#L137)) preserva a saída do modelo, mas pode conter system prompt vazado (ver RT-01 em [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md#rt-01--prompt-injection-direta-com-vazamento-de-system-prompt)).
+- Quando o agente cai no fallback simulado ([src/rag/generator.py:569+](src/rag/generator.py#L569)), o `trace` mostra raciocínio falso porque a resposta vem de regex hardcoded, **não** do LLM.
+- Os fallbacks adicionados em [app.py:302-335](src/serving/app.py#L302-L335) substituem `answer` quando o agente retorna formato inválido — o `trace` é estendido com a justificativa, mas o usuário leigo pode não distinguir resposta agêntica de resposta RAG direta.
 
 ### 4.2 Melhorias propostas
 
 | Melhoria | Implementação |
 |----------|---------------|
-| **Marcar resposta simulada** | Adicionar campo `generation_mode: "simulated"` e badge `[DEMO]` em respostas geradas por `_generate_simulated_answer` |
-| **Sanitizar trace** antes de retornar | Remover system prompt e `HF_TOKEN` se aparecerem no `raw_output` |
-| **Tool-use auditing** | Cada chamada de tool gera registro estruturado (`tool`, `input_hash`, `output_summary`, `latency_ms`) persistido no MLflow |
+| **Marcar resposta simulada / fallback** | Adicionar campo `generation_mode: "simulated" \| "rag_fast_path" \| "rag_fallback" \| "react"` em todas as respostas, distinguindo os caminhos de [app.py:286-335](src/serving/app.py#L286-L335) |
+| **Sanitizar trace** antes de retornar | Remover system prompt, `HF_TOKEN` e `VLLM_API_KEY` se aparecerem no `raw_output` |
+| **Tool-use auditing** | Cada chamada de tool gera registro estruturado (`tool`, `input_hash`, `output_summary`, `latency_ms`) persistido no **Langfuse** ([docker-compose.yaml:138-154](docker-compose.yaml#L138-L154)) |
 | **Decisão revisável (LGPD Art. 20)** | Endpoint `POST /lgpd/review` que abre ticket vinculado a um `trace_id` para análise humana |
 | **Determinismo opcional** | Permitir `temperature=0` em modo "auditoria" para reprodutibilidade do trace |
 
@@ -203,13 +205,13 @@ Não existe "fairness" universal — depende do dano que se quer evitar. No cont
 ### 5.2 Riscos concretos no projeto
 
 #### R1 — Viés de cobertura nos modelos preditivos
-Os modelos são treinados ticker-a-ticker via `--ticker` em [train.py:307](src/models/train.py#L307). Para tickers com **histórico curto** (IPO recente) ou **baixa liquidez** (gaps no preço de fechamento), a janela em [train.py:116-131](src/models/train.py#L116-L131) descarta amostras silenciosamente.
+Os modelos são treinados ticker-a-ticker via CLI `main(args)` em [train.py:262](src/models/train.py#L262). Para tickers com **histórico curto** (IPO recente) ou **baixa liquidez** (gaps no preço de fechamento), o pipeline de features ([src/features/feature_engineering.py](src/features/feature_engineering.py)) descarta amostras silenciosamente.
 
 **Métrica.** Performance gap (MAPE) entre subgrupos: `mape_largecap` vs `mape_smallcap`, `mape_setor_financeiro` vs `mape_outros`.
 **Limiar.** Razão entre maior e menor MAPE não deve exceder **1.5x**.
 
 #### R2 — Viés de regime no treinamento
-Split temporal 80/20 em [train.py:169-171](src/models/train.py#L169-L171). Se o conjunto de treino concentra um regime macro (ex.: 2018–2023, taxa baixa) e o teste pega outro (2024+, Selic alta), a métrica de teste **subestima** o erro futuro.
+Split temporal 80/20 logado em [train.py:317](src/models/train.py#L317). Se o conjunto de treino concentra um regime macro (ex.: 2018–2023, taxa baixa) e o teste pega outro (2024+, Selic alta), a métrica de teste **subestima** o erro futuro.
 
 **Métrica.** *Distribution shift* via PSI (Population Stability Index) entre treino e teste, e entre teste e produção.
 **Limiar.** PSI > 0.2 → re-treinar; PSI > 0.1 → alerta.
@@ -221,13 +223,13 @@ Documentos ingeridos via `tool_fetch_news` ([src/rag/data_loader.py](src/rag/dat
 **Limiar.** Recall@3 ≥ 0.7 em todas as categorias.
 
 #### R4 — Viés de recomendação categórica
-A função `_generate_simulated_answer` em [src/rag/generator.py:148-161](src/rag/generator.py#L148-L161) faz **dispatching por palavra-chave** que sempre direciona para perfis conservadores ("CDB, Tesouro Direto, debêntures"). Usuários cuja query menciona "criptomoeda" sempre recebem resposta de aversão a risco — mesmo que a query seja de um investidor profissional.
+A função `_generate_simulated_answer` em [src/rag/generator.py:569+](src/rag/generator.py#L569) faz **dispatching por palavra-chave** que sempre direciona para perfis conservadores ("CDB, Tesouro Direto, debêntures"). Usuários cuja query menciona "criptomoeda" sempre recebem resposta de aversão a risco — mesmo que a query seja de um investidor profissional.
 
 **Métrica.** Distribuição de classes de recomendação entre tipos de query. Se 95% das queries cripto recebem resposta "no máximo 5-10%", há rigidez (que pode ou não ser desejada — decidir explicitamente).
 **Ação.** Documentar essa rigidez como **escolha de produto** ou substituí-la por geração condicionada ao perfil do usuário (com consentimento, ver [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md)).
 
 #### R5 — Viés do LLM upstream
-Modelos como `Qwen/Qwen2.5-0.5B-Instruct-AWQ` (ver [README.md:124](README.md#L124)) ou `facebook/opt-1.3b` ([generator.py:14](src/rag/generator.py#L14)) carregam vieses do corpus de treinamento — sub-representação de ativos brasileiros, gírias financeiras em PT-BR, gênero/raça em narrativas.
+Modelos servidos via `VLLM_BASE_URL` (default `qwen2.5-0.5b-awq` em [docker-compose.yaml:48](docker-compose.yaml#L48)) ou via fallback HF (`google/flan-t5-base` em [docker-compose.yaml:50](docker-compose.yaml#L50)) carregam vieses do corpus de treinamento — sub-representação de ativos brasileiros, gírias financeiras em PT-BR, gênero/raça em narrativas.
 
 **Métrica.** Bias eval com benchmarks como [HolisticBias](https://github.com/facebookresearch/ResponsibleNLP), traduzido/adaptado para PT-BR.
 **Ação.** Documentar no model card do RAG quais modelos foram avaliados e onde falham.
@@ -236,22 +238,22 @@ Modelos como `Qwen/Qwen2.5-0.5B-Instruct-AWQ` (ver [README.md:124](README.md#L12
 
 | Métrica | Onde calcular | Frequência |
 |---------|---------------|------------|
-| MAPE por subgrupo de ticker (setor, liquidez) | Pipeline de avaliação batch | Por release de modelo |
-| PSI treino↔teste↔produção | Pipeline de monitoramento | Diário |
+| MAPE por subgrupo de ticker (setor, liquidez) | Pipeline de avaliação batch (DVC) | Por release de modelo |
+| PSI treino↔teste↔produção | Pipeline de monitoramento + Prometheus | Diário |
 | Retrieval recall@k por categoria | Suite de queries-canário | Por mudança no índice |
 | Faithfulness score (RAGAS) | Avaliação pós-geração | Por mudança no prompt |
-| Distribuição de classes de resposta | Logs de produção | Semanal |
-| Latência média e p95 por step do agente | Trace MLflow | Contínuo |
+| Distribuição de classes de resposta | Logs de produção (Langfuse) | Semanal |
+| Latência média e p95 por step do agente | Trace Langfuse + counter Prometheus (`:8001`) | Contínuo |
 
 ---
 
 ## 6. Plano de implementação
 
 ### Sprint 1 (P0 — fundação)
-- [ ] Criar Model Card para cada modelo em `docs/model_cards/`.
+- [ ] Criar Model Card para cada modelo em `docs/model_cards/` (complementa [docs/MODEL_CARD.md](docs/MODEL_CARD.md)).
 - [ ] Adicionar campo `sources` na resposta de `/query` com citação estruturada.
-- [ ] Marcar `generation_mode` em `/query` e `/agent` quando resposta é simulada.
-- [ ] Sanitizar `trace` do agente (remover system prompt e tokens).
+- [ ] Marcar `generation_mode` em `/query` e `/agent` (distinguindo `react`, `rag_fast_path`, `rag_fallback`, `simulated`).
+- [ ] Sanitizar `trace` do agente (remover system prompt, `HF_TOKEN`, `VLLM_API_KEY`).
 - [ ] Endpoint `POST /lgpd/review` para revisão humana (Art. 20).
 
 ### Sprint 2 (P1 — XAI dos modelos)
@@ -265,7 +267,7 @@ Modelos como `Qwen/Qwen2.5-0.5B-Instruct-AWQ` (ver [README.md:124](README.md#L12
 - [ ] PSI computado em pipeline DVC ([dvc.yaml](dvc.yaml)).
 - [ ] Suite de queries-canário e medição de recall@k por categoria.
 - [ ] RAGAS faithfulness score automatizado.
-- [ ] Dashboard de fairness exposto.
+- [ ] Dashboard de fairness em Grafana ([configs/grafana/](configs/grafana/)).
 
 ### Sprint 4 (P2 — governança contínua)
 - [ ] Bias eval do LLM com benchmark PT-BR.
@@ -276,7 +278,7 @@ Modelos como `Qwen/Qwen2.5-0.5B-Instruct-AWQ` (ver [README.md:124](README.md#L12
 
 ## 7. Métricas e dashboard
 
-Sugestão de painel exposto em endpoint `GET /metrics/fairness` (interno, autenticado), agregando do MLflow:
+Sugestão de painel exposto em **Grafana** (`:3001`, ver [docker-compose.yaml:115-135](docker-compose.yaml#L115-L135)) com datasource Prometheus + MLflow, complementado pelo endpoint `GET /metrics/fairness` (interno, autenticado):
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -297,18 +299,18 @@ Sugestão de painel exposto em endpoint `GET /metrics/fairness` (interno, autent
 └──────────────────────────────────────────────────────────┘
 ```
 
-Os limiares (1.5x ratio, PSI 0.2, recall 0.7) ficam em [config/](config/) versionados.
+Os limiares (1.5x ratio, PSI 0.2, recall 0.7) ficam em [config/](config/) versionados (ex.: [config/monitoring_config.yaml](config/monitoring_config.yaml)).
 
 ---
 
 ## 8. Governança e ciclo de revisão
 
 - **Revisão trimestral** dos Model Cards e do plano de fairness.
-- **Disclaimer obrigatório** em toda resposta financeira (ver [docs/RED_TEAMING.md](docs/RED_TEAMING.md#rt-04--manipulação-de-recomendação-financeira-pump--dump-assistido-por-ia) §RT-04).
+- **Disclaimer obrigatório** em toda resposta financeira (ver [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md#rt-02--data-poisoning-via-ingest-ingest_mlflow-e-fetch_news) §RT-02 — disclaimer CVM 39/2021).
 - **Direito à revisão humana (LGPD Art. 20)** acessível em até **15 dias úteis**, conforme [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md#5-direitos-dos-titulares-art-18--como-atender) §5.
 - **Auditoria externa** anual com foco em viés sistemático.
 - **Comitê de IA Responsável** (mesmo que pequeno): Encarregado LGPD + um eng. ML + um stakeholder de produto. Aprova mudanças de prompt do agente, novos modelos e novas categorias de recomendação.
-- **Versionamento de prompts**: registrar [react_agent.py:60-87](src/agent/react_agent.py#L60-L87) sob versionamento semântico — mudanças exigem revisão.
+- **Versionamento de prompts**: registrar [react_agent.py:59-94](src/agent/react_agent.py#L59-L94) sob versionamento semântico — mudanças exigem revisão.
 
 ---
 
@@ -333,4 +335,4 @@ Os limiares (1.5x ratio, PSI 0.2, recall 0.7) ficam em [config/](config/) versio
 - [LGPD — Art. 20 (decisões automatizadas)](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm#art20)
 - [NIST AI Risk Management Framework — Trustworthy & Responsible AI](https://www.nist.gov/itl/ai-risk-management-framework)
 - [EU AI Act — Title III (sistemas de alto risco)](https://artificialintelligenceact.eu/)
-- Documentação interna: [docs/OWASP.md](docs/OWASP.md), [docs/RED_TEAMING.md](docs/RED_TEAMING.md), [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md)
+- Documentação interna: [docs/OWASP.md](docs/OWASP.md), [docs/RED_TEAM_REPORT.md](docs/RED_TEAM_REPORT.md), [docs/LGPD_PLAN.md](docs/LGPD_PLAN.md), [docs/MODEL_CARD.md](docs/MODEL_CARD.md)
